@@ -25,10 +25,12 @@ test("a teacher cannot open a colleague's class in the same school", async ({ pa
 test("a school admin sees all their school's classes, codes only, and the school audit log", async ({ page }) => {
   await signIn(page, "northgateAdmin");
   await page.goto("/classes");
-  await expect(page.getByRole("table", { name: "Classes" }).getByRole("row")).toHaveCount(4);
+  const classes = page.getByRole("table", { name: "Classes" });
+  for (const name of ["9S1", "10M2", "8E3"]) await expect(classes.getByRole("link", { name, exact: true })).toBeVisible();
+  await expect(classes).not.toContainText("9X"); // Riverside's class
   await page.getByRole("link", { name: "8E3" }).click();
   await expect(page.getByRole("columnheader", { name: "Name" })).toHaveCount(0);
-  await expect(page.getByText("Pupil names are visible to the class teacher only.")).toBeVisible();
+  await expect(page.getByText("Pupil names, work and marks are visible to the class teachers only.")).toBeVisible();
 
   await page.goto("/audit");
   const log = page.getByRole("table", { name: /Audit events/ });
