@@ -34,7 +34,31 @@ export const IDS = {
   classNorthgateEng: id(203),
   classRiversideSci: id(211),
   classOtherMaths: id(221),
+  assignmentNorthgateSci: id(301),
+  assignmentRiversideSci: id(311),
+  assignmentOtherMaths: id(321),
 } as const;
+
+// Year 9 Science, cells and photosynthesis, 8 marks, five questions (CLAUDE.md Appendix A).
+export const SCIENCE_SCHEME = {
+  title: "Cells and photosynthesis",
+  workType: "short" as const,
+  totalMarks: 8,
+  schemeText: [
+    "Q1 Name the part of a plant cell where photosynthesis happens. (1) Chloroplast.",
+    "Q2 Write the word equation for photosynthesis. (2) carbon dioxide + water -> glucose + oxygen. 1 mark for correct reactants, 1 for correct products.",
+    "Q3 Name two structures found in plant cells but not animal cells. (2) Any two of: cell wall, chloroplast, permanent vacuole.",
+    "Q4 Why do plants need light for photosynthesis? (1) Light provides the energy for the reaction.",
+    "Q5 Suggest why a plant kept in the dark loses mass. (2) No photosynthesis so no glucose made (1); glucose still used in respiration (1).",
+  ].join("\n"),
+  criteria: [
+    { label: "Q1", max: 1 },
+    { label: "Q2", max: 2 },
+    { label: "Q3", max: 2 },
+    { label: "Q4", max: 1 },
+    { label: "Q5", max: 2 },
+  ],
+};
 
 export const EMAILS = {
   authorityAdmin: "authority.admin@demo-authority.test",
@@ -109,6 +133,15 @@ export async function seedFoundation(adminUrl: string, pupilNameKey: string): Pr
           await tx`insert into pupil (class_id, school_id, code, display_name_enc)
             values (${c.id}, ${c.school}, ${`${c.prefix}${String(i).padStart(2, "0")}`}, ${enc})`;
         }
+      }
+      for (const [aid, cid, sid, by] of [
+        [IDS.assignmentNorthgateSci, IDS.classNorthgateSci, IDS.schoolNorthgate, IDS.northgateTeacher1],
+        [IDS.assignmentRiversideSci, IDS.classRiversideSci, IDS.schoolRiverside, IDS.riversideTeacher],
+        [IDS.assignmentOtherMaths, IDS.classOtherMaths, IDS.schoolOther, IDS.otherTeacher],
+      ] as const) {
+        const s = SCIENCE_SCHEME;
+        await tx`insert into assignment (id, class_id, school_id, title, work_type, scheme_text, total_marks, criteria, created_by)
+          values (${aid}, ${cid}, ${sid}, ${s.title}, ${s.workType}, ${s.schemeText}, ${s.totalMarks}, ${tx.json(s.criteria)}, ${by})`;
       }
     });
   } finally {

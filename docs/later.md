@@ -7,3 +7,4 @@ Ideas outside v1 scope. Not to be built until agreed.
 - Links to school management systems; Google Classroom and Teams integration.
 - Manual light/dark theme toggle (v1 follows the system setting).
 - Per-user preferences for date and time display.
+- Per-pupil PDF feedback sheet (in the teacher workflow but not in any build step; awaiting a decision).

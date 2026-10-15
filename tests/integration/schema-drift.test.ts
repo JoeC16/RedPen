@@ -11,10 +11,11 @@ afterAll(() => adminConn().end());
 const tables = Object.values(schema).filter((v) => is(v, PgTable)) as unknown as PgTable[];
 
 describe("drizzle schema matches the migrated database", () => {
-  it("defines at least the foundation tables", () => {
-    expect(tables.map((t) => getTableName(t)).sort()).toEqual(
-      ["app_user", "audit_event", "authority", "class", "class_teacher", "login_attempt", "pupil", "school"].sort(),
-    );
+  it("defines every table in the database", async () => {
+    const db = await adminConn()<{ table_name: string }[]>`
+      select table_name from information_schema.tables
+      where table_schema = 'public' and table_type = 'BASE TABLE' and table_name <> 'schema_migrations'`;
+    expect(tables.map((t) => getTableName(t)).sort()).toEqual(db.map((r) => r.table_name).sort());
   });
 
   for (const table of tables) {

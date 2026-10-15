@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
-import { Empty, linkClass, PageTitle, Table, Td } from "@/components/ui";
+import { buttonClass, Empty, linkClass, PageTitle, Table, Td } from "@/components/ui";
 import { listClasses } from "@/server/dal/classes";
 import { requirePageUser } from "@/server/session";
 
@@ -15,7 +15,10 @@ export default async function ClassesPage() {
   const classes = await listClasses(user);
   return (
     <AppShell user={user}>
-      <PageTitle>{user.role === "teacher" ? "My classes" : "Classes"}</PageTitle>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <PageTitle>{user.role === "teacher" ? "My classes" : "Classes"}</PageTitle>
+        <Link href="/classes/new" className={buttonClass}>New class</Link>
+      </div>
       {classes.length === 0 ? (
         <Empty>No classes yet.</Empty>
       ) : (
