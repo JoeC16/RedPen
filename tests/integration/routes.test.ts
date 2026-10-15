@@ -39,6 +39,10 @@ const ROUTES: Record<string, { load: () => Promise<unknown>; target: (school: "A
     target: (s) => ({ classId: { A: IDS.classNorthgateSci, B: IDS.classRiversideSci, C: IDS.classOtherMaths }[s] }),
   },
   "api/audit": { load: () => import("@/app/api/audit/route"), target: () => ({}) },
+  "api/assignments/[assignmentId]/export": {
+    load: () => import("@/app/api/assignments/[assignmentId]/export/route"),
+    target: (s) => ({ assignmentId: { A: IDS.assignmentNorthgateSci, B: IDS.assignmentRiversideSci, C: IDS.assignmentOtherMaths }[s] }),
+  },
 };
 
 /** Routes that are deliberately not tenant-scoped. */
@@ -63,7 +67,9 @@ async function call(route: string, as: FixtureUser | null, school: "A" | "B" | "
   const params = r.target(school);
   const url = `http://localhost/${route.replace(/\[(\w+)\]/g, (_, k: string) => params[k] ?? "")}${query}`;
   const res = await GET(new Request(url), { params: Promise.resolve(params) });
-  return { status: res.status, body: (await res.json()) as Record<string, unknown> };
+  const text = await res.text();
+  const body = res.headers.get("content-type")?.includes("json") ? (JSON.parse(text) as Record<string, unknown>) : { raw: text };
+  return { status: res.status, body };
 }
 
 describe("route inventory", () => {
@@ -83,7 +89,11 @@ describe("unauthenticated", () => {
 });
 
 describe("cross-school and cross-authority access", () => {
-  const otherSchoolIds = [IDS.schoolRiverside, IDS.classRiversideSci, IDS.riversideTeacher, IDS.schoolOther, IDS.classOtherMaths, IDS.otherTeacher];
+  const otherSchoolIds = [
+    IDS.schoolRiverside, IDS.classRiversideSci, IDS.riversideTeacher, IDS.assignmentRiversideSci,
+    IDS.schoolOther, IDS.classOtherMaths, IDS.otherTeacher, IDS.assignmentOtherMaths,
+    "RV9X", "OT11A", // pupil code prefixes from other schools
+  ];
 
   // For every route, every school-level user, aimed at another school's data:
   // the response is 404/403 or contains none of the other school's ids.
@@ -127,6 +137,16 @@ describe("cross-school and cross-authority access", () => {
     expect((await call("api/classes/[classId]/pupils", "authorityAdmin", "A")).status).toBe(403);
   });
 
+  it("a teacher gets 404 exporting another school's or a colleague's assignment", async () => {
+    expect((await call("api/assignments/[assignmentId]/export", "northgateTeacher1", "B")).status).toBe(404);
+    expect((await call("api/assignments/[assignmentId]/export", "northgateTeacher2", "A")).status).toBe(404);
+  });
+
+  it("admins cannot export pupil marks", async () => {
+    expect((await call("api/assignments/[assignmentId]/export", "northgateAdmin", "A")).status).toBe(403);
+    expect((await call("api/assignments/[assignmentId]/export", "authorityAdmin", "A")).status).toBe(403);
+  });
+
   it("teachers cannot read the audit log", async () => {
     expect((await call("api/audit", "northgateTeacher1")).status).toBe(403);
   });
@@ -144,6 +164,15 @@ describe("cross-school and cross-authority access", () => {
 });
 
 describe("same-school access still works", () => {
+  it("the class teacher exports a CSV with every pupil and a formula-safe header", async () => {
+    const res = await call("api/assignments/[assignmentId]/export", "northgateTeacher1", "A");
+    expect(res.status).toBe(200);
+    const lines = String(res.body.raw).replace(/^\uFEFF/, "").trim().split("\r\n");
+    expect(lines[0]).toBe("Pupil code,Name,Status,Q1 (/1),Q2 (/2),Q3 (/2),Q4 (/1),Q5 (/2),Total (/8),Feedback,Approved at,Approved by");
+    expect(lines).toHaveLength(7);
+    expect(lines.slice(1).every((l) => l.includes("not approved"))).toBe(true);
+  });
+
   it("teacher sees their own class and its pupils with names", async () => {
     const res = await call("api/classes/[classId]/pupils", "northgateTeacher1", "A");
     expect(res.status).toBe(200);
