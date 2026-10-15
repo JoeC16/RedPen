@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Create database roles and databases
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f db/bootstrap.sql
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit and integration tests (Vitest)
+        run: npm test
+      - name: Tenancy tests with row-level security bypassed (proves the data-access layer alone)
+        run: npx vitest run tests/integration/routes.test.ts
+        env:
+          TEST_DATABASE_URL: postgres://redpen_owner:redpen_owner_dev@localhost:5432/redpen_test
+      - name: Build
+        run: npm run build
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end tests (Playwright)
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Audit dependencies for known vulnerabilities
+        run: npm audit --audit-level=high
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build production image
+        run: docker build -t redpen:ci .
