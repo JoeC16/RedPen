@@ -6,6 +6,7 @@ import {
   boolean,
   integer,
   jsonb,
+  numeric,
   pgEnum,
   pgTable,
   primaryKey,
@@ -93,4 +94,97 @@ export const loginAttempt = pgTable("login_attempt", {
   ipKey: text("ip_key").notNull(),
   succeeded: boolean("succeeded").notNull(),
   createdAt: createdAt(),
+});
+
+// ---------------------------------------------------------------------------
+// 0002 teacher core
+// ---------------------------------------------------------------------------
+export const workType = pgEnum("work_type", ["short", "maths", "essay"]);
+export const submissionStatus = pgEnum("submission_status", ["todo", "marking", "review", "approved", "failed"]);
+export type SubmissionStatus = (typeof submissionStatus.enumValues)[number];
+export const markSource = pgEnum("mark_source", ["manual", "ai"]);
+
+const halfMark = (name: string) => numeric(name, { precision: 5, scale: 1, mode: "number" });
+
+export const assignment = pgTable("assignment", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  classId: uuid("class_id").notNull(),
+  schoolId: uuid("school_id").notNull(),
+  title: text("title").notNull(),
+  workType: workType("work_type").notNull(),
+  schemeText: text("scheme_text").notNull(),
+  totalMarks: integer("total_marks").notNull(),
+  criteria: jsonb("criteria").$type<{ label: string; max: number }[]>().notNull(),
+  schemeVersion: integer("scheme_version").notNull().default(1),
+  createdBy: uuid("created_by").notNull(),
+  createdAt: createdAt(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const submission = pgTable("submission", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  assignmentId: uuid("assignment_id").notNull(),
+  pupilId: uuid("pupil_id").notNull(),
+  classId: uuid("class_id").notNull(),
+  schoolId: uuid("school_id").notNull(),
+  text: text("text"),
+  absent: boolean("absent").notNull().default(false),
+  status: submissionStatus("status").notNull().default("todo"),
+  feedback: text("feedback"),
+  createdAt: createdAt(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  deleteAfter: timestamp("delete_after", { withTimezone: true }),
+});
+
+export const markResult = pgTable("mark_result", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  submissionId: uuid("submission_id").notNull(),
+  classId: uuid("class_id").notNull(),
+  schoolId: uuid("school_id").notNull(),
+  assignmentId: uuid("assignment_id").notNull(),
+  schemeVersion: integer("scheme_version").notNull(),
+  runNumber: integer("run_number").notNull(),
+  source: markSource("source").notNull(),
+  model: text("model"),
+  promptVersion: text("prompt_version"),
+  confidence: text("confidence").$type<"high" | "medium" | "low">(),
+  flags: jsonb("flags").$type<string[]>().notNull().default([]),
+  transcription: text("transcription"),
+  feedbackDraft: text("feedback_draft"),
+  tokensIn: integer("tokens_in"),
+  tokensOut: integer("tokens_out"),
+  latencyMs: integer("latency_ms"),
+  createdBy: uuid("created_by"),
+  createdAt: createdAt(),
+});
+
+export const markLine = pgTable("mark_line", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  markResultId: uuid("mark_result_id").notNull(),
+  classId: uuid("class_id").notNull(),
+  schoolId: uuid("school_id").notNull(),
+  position: smallint("position").notNull(),
+  label: text("label").notNull(),
+  max: integer("max").notNull(),
+  aiAwarded: halfMark("ai_awarded"),
+  finalAwarded: halfMark("final_awarded"),
+  evidence: text("evidence"),
+  comment: text("comment"),
+});
+
+export const approval = pgTable("approval", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  submissionId: uuid("submission_id").notNull(),
+  classId: uuid("class_id").notNull(),
+  schoolId: uuid("school_id").notNull(),
+  markResultId: uuid("mark_result_id").notNull(),
+  approvedBy: uuid("approved_by").notNull(),
+  approvedAt: timestamp("approved_at", { withTimezone: true }).notNull().defaultNow(),
+  finalTotal: halfMark("final_total").notNull(),
+  finalFeedback: text("final_feedback"),
+  aiTotal: halfMark("ai_total"),
+  linesChanged: integer("lines_changed"),
+  reopenedAt: timestamp("reopened_at", { withTimezone: true }),
+  reopenedBy: uuid("reopened_by"),
+  reopenReason: text("reopen_reason"),
 });
