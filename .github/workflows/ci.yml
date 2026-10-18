@@ -43,6 +43,7 @@ jobs:
         run: |
           npx vitest run tests/integration/routes.test.ts
           npx vitest run tests/integration/marking.test.ts -t "DAL tenancy"
+          npx vitest run tests/integration/marking-engine.test.ts -t "refused for colleagues|another school's work"
         env:
           TEST_DATABASE_URL: postgres://redpen_owner:redpen_owner_dev@localhost:5432/redpen_test
       - name: Build
@@ -57,6 +58,47 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # The evaluation harness. Runs against the live AI when the prompt, the
+  # marking engine or the eval cases change and the ANTHROPIC_API_KEY secret is
+  # set; otherwise runs in demo mode (checks the harness only) with a warning.
+  # Fails if agreement within one mark drops more than EVAL_MAX_DROP below eval/baseline.json.
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Decide whether to call the live AI
+        id: scope
+        run: |
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$base" ] || ! git cat-file -e "$base" 2>/dev/null; then changed=yes
+          elif git diff --name-only "$base" HEAD | grep -qE '^(src/server/marking/|eval/)'; then changed=yes
+          else changed=no; fi
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          echo "Prompt, engine or eval cases changed: $changed"
+      - name: Evaluation harness
+        env:
+          ANTHROPIC_API_KEY: ${{ steps.scope.outputs.changed == 'yes' && secrets.ANTHROPIC_API_KEY || '' }}
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
+          MODEL_PRICE_INPUT_PER_MTOK: ${{ vars.MODEL_PRICE_INPUT_PER_MTOK }}
+          MODEL_PRICE_CACHE_READ_PER_MTOK: ${{ vars.MODEL_PRICE_CACHE_READ_PER_MTOK }}
+          MODEL_PRICE_OUTPUT_PER_MTOK: ${{ vars.MODEL_PRICE_OUTPUT_PER_MTOK }}
+          EVAL_MAX_DROP: "0.05"
+        run: npm run eval -- --check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-report
+          path: eval/reports/
+          retention-days: 30
 
   dependencies:
     runs-on: ubuntu-latest

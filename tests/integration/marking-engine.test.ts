@@ -177,6 +177,8 @@ describe("failures", () => {
     const v = await getReview(t1, aid, pupils[5]!.id);
     expect(v?.run?.confidence).toBe("low");
     expect(v?.run?.flags.join(" ")).toMatch(/treated as data, not followed/);
+    // The demo placeholder proposes nothing, so no mark box is pre-filled for the teacher to approve by accident.
+    expect(v?.lines.every((l) => l.aiAwarded === null)).toBe(true);
     // Doubtful work sorts into the top group, above every confident or unmarked script.
     const q = await reviewQueue(t1, aid);
     const ranks = q!.rows.map((r) => ({ code: r.pupilCode, rank: queueRank(r) }));
