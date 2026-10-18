@@ -52,3 +52,21 @@ One line per significant decision and the reason.
 - Founder decision: **school admins can read pupil work and marks in their school.** This is read-only: marking, approval, reopening and export stay with the class's teachers. Pupil names stay teacher-only. Each time a school admin opens a pupil's work, an audit event (`submission.viewed`) is recorded. Authority admins still see none of it (migration `0003_school_admin_read.sql`).
 - The per-pupil feedback sheet is a printable page, one pupil per page, saved as PDF from the browser's print dialog. No PDF library, so no new dependency or server-side rendering. The output is accessible HTML and prints the same on any device. Teachers open it from the assignment (all approved pupils) or from one pupil's review screen. Generating sheets is audit logged (`export.feedback_sheets`). If a one-click .pdf download is needed later, it can be added behind the same data function.
 - Print styles force black on white whatever the screen theme, and hide the navigation.
+
+## Step 3 (2026-10-18)
+
+- The eight prototype evaluation cases were written by Claude at the founder's request (the prototype file was not available). Their reference marks are synthetic and labelled so in every file and every harness report. They must be replaced or re-marked by teachers before agreement figures are quoted.
+- The prompt lists the teacher's mark lines and asks for exactly one criterion per line. The scheme's labels and maxima override the model's, and every override is flagged. This makes the "maxima must add up" rule enforceable and the agreement metric line-by-line.
+- The scheme and instructions are the system prompt, cached across a class run; only the pupil's work varies per request (lower cost for a class of 30).
+- Structured outputs with a hand-written JSON schema, validated again with zod on our side (the brief's "validated with zod", and a second line of defence).
+- `ClaudeProvider` uses server-side fallbacks (`fallbacks: "default"`) by default so a policy decline on one model is retried on Anthropic's recommended fallback. `ANTHROPIC_FALLBACKS=off` disables it. The model that actually answered is recorded in `mark_result.model`.
+- `MARKING_EFFORT=high` by default: marking accuracy matters more than speed. It is configurable, like the model.
+- Redaction replaces every pupil and staff name in the school, plus each name part of two or more letters, which can over-redact a common word that is also a name ("Grace"). Over-redaction is the safe failure.
+- A local injection check runs independently of the model. A hit forces low confidence and a flag, so a fooled model cannot hide an attempt.
+- AI suggestions pre-fill the mark boxes (the teacher still approves one pupil at a time). The demo placeholder proposes nothing, so its boxes stay blank.
+- The AI's per-line reason is stored in `mark_line.ai_comment`, separate from the teacher's own note in `comment`.
+- pg-boss runs in its own `pgboss` schema, created by the app role (migration 0004 grants CREATE on the database). Jobs carry only ids. The worker acts as the teacher who asked, so row-level security covers it.
+- Rate limits default to 300 scripts per teacher and 1500 per school per hour, counted from a `marking_request` table through a security-definer function (the school-wide count crosses classes the teacher cannot see).
+- The worker runs inside the web server by default (one deploy target), and can run alone with `npm run worker`. A production separate-worker setup is left to step 8.
+- CI runs the eval harness on every PR. It calls the live AI only when `src/server/marking/` or `eval/` changes, to keep CI cost down.
+- Playwright resets the e2e database in the web server command, before the app starts, so the queue worker never connects to a half-reset schema. It never reuses an already-running server.

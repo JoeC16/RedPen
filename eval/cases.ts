@@ -2,14 +2,14 @@
 // harness read the same files. Add a case: drop a JSON file in the folder for
 // its work type and list it here.
 import { z } from "zod";
-import essay01 from "./essay/essay-01.json";
-import essay02 from "./essay/essay-02.json";
-import maths01 from "./maths/maths-01.json";
-import maths02 from "./maths/maths-02.json";
-import maths03 from "./maths/maths-03.json";
-import short01 from "./short/short-01.json";
-import short02 from "./short/short-02.json";
-import short03 from "./short/short-03.json";
+import essay01 from "./essay/essay-01.json" with { type: "json" };
+import essay02 from "./essay/essay-02.json" with { type: "json" };
+import maths01 from "./maths/maths-01.json" with { type: "json" };
+import maths02 from "./maths/maths-02.json" with { type: "json" };
+import maths03 from "./maths/maths-03.json" with { type: "json" };
+import short01 from "./short/short-01.json" with { type: "json" };
+import short02 from "./short/short-02.json" with { type: "json" };
+import short03 from "./short/short-03.json" with { type: "json" };
 import { markingResultSchema } from "../src/server/marking/result-schema";
 
 export const evalCaseSchema = z.object({

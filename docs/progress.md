@@ -1,5 +1,72 @@
 # Progress
 
+## Step 3: Marking engine (done, in demo mode; live AI not yet run)
+
+Built:
+
+- `MarkingProvider` with two implementations:
+  - `ClaudeProvider` (`src/server/marking/claude.ts`):
+    - Uses the Anthropic SDK. The model comes only from `ANTHROPIC_MODEL`.
+    - Requests structured JSON output. The instructions and mark scheme are cached across a class.
+    - Server-side fallback when the model declines for policy reasons (`ANTHROPIC_FALLBACKS`).
+    - Thinking effort is set by `MARKING_EFFORT`.
+    - Refusals and API errors become reasons a teacher can read, each marked retryable or not.
+  - `DemoProvider`:
+    - Fixed, realistic results for the demo pupils, keyed by a hash of the work type, scheme and work.
+    - Anything else gets a labelled placeholder that proposes no marks.
+    - Used when `MARKING_MODE=demo` or no API key is set. A banner says so on every page.
+- The prompt follows Appendix A, with the teacher's mark lines listed so the model returns one line per question. It is versioned (`PROMPT_VERSION`).
+- Every result is validated with zod and retried once if invalid. A second invalid answer marks the work `failed` with a readable reason.
+- Results are fitted to the teacher's scheme:
+  - Half-mark rounding and clamping to 0..max.
+  - The scheme's maxima win.
+  - Lines are matched by label.
+  - Each correction becomes a flag. A flag is also raised when the AI's maxima do not add up to the total.
+- Redaction: every pupil name and staff name in the school (full names and name parts, word boundaries, any case) is replaced with `[name]` before sending. The teacher still sees the original.
+- Prompt injection:
+  - Pupil work is delimited, and a pupil cannot close the delimiter.
+  - The prompt tells the model to ignore and flag instructions.
+  - A local check flags hostile work and drops confidence to low whatever the model says, so the work sorts to the top of the queue.
+- Jobs run on pg-boss in its own schema, as the requesting teacher, so row-level security applies to the worker.
+  - Retries with backoff for retryable errors.
+  - Idempotent per job.
+  - One failure never blocks the rest.
+  - Stuck jobs are re-queued by the next class run.
+  - The worker runs in the web server by default (`MARKING_WORKER`), or alone with `npm run worker`.
+- Rate limits per teacher and per school per hour, with a clear message. Every run records model, prompt version, token counts (including cache reads) and latency. Logs carry ids and numbers only.
+- Teacher screens:
+  - "Run AI marking" for the class, with live progress that survives a refresh.
+  - Queue columns for AI confidence and flags (in words, not colour alone).
+  - On the review screen:
+    - An AI suggestion panel with confidence and the flags to check.
+    - For each line, the suggested mark, its evidence, the AI's reason, and a "you changed this" marker when the teacher's mark differs.
+    - AI draft feedback, labelled as a draft.
+    - "Mark again with AI", and "Try again" on failure.
+- Approving an AI-marked pupil records the agreement data (AI total and lines changed). The AI's marks stay in `ai_awarded`, separate from `final_awarded`.
+- Evaluation harness, `npm run eval`:
+  - Eight prototype cases in `/eval/short`, `/eval/maths` and `/eval/essay`.
+  - Reports exact line agreement, agreement within one mark per script, how often high confidence matched the reference, and time and cost per script, by work type.
+  - `--check` fails CI if agreement within one mark drops more than `EVAL_MAX_DROP` below `eval/baseline.json`. CI calls the live AI when the prompt, engine or cases change and the `ANTHROPIC_API_KEY` secret exists; otherwise it runs in demo mode and warns.
+
+**Important about the eight prototype cases.** You asked me to create them, so their reference marks are mine, not a teacher's. Every file, and every harness run, says so. Agreement figures from them must not be shown to authorities as teacher agreement until real teachers have marked the cases (target: 30 per type).
+
+Acceptance:
+- **Marking runs in both modes: partly met.** Demo mode is tested end to end in a browser (`e2e/ai-marking.spec.ts`): paste work, run AI marking, background jobs finish, the queue reorders doubt-first, the review shows suggestions, evidence, reasons, flags and draft feedback, and the teacher changes a mark and approves. Claude mode is covered by tests against a mocked SDK client (request shape, structured output, fallbacks, refusals, error mapping, token accounting). It has **not** been run against the live API, because this environment has no API key.
+- **The harness prints agreement figures: met** (demo provider: 90% exact line agreement, 100% within one mark). Those figures say nothing about the AI.
+
+Tests: 228 Vitest tests (unit tests for the engine, plus 13 integration tests through the real database) and 17 Playwright tests.
+
+Checked by hand in a browser (light and dark): the queue after a class run, the review screen for a clear-cut pupil, a borderline pupil and a hostile script. Fixes from this:
+- The demo placeholder pre-filled zero marks that a teacher could approve by accident. It now leaves the boxes blank.
+- Draft AI rows showed no mark in the queue. They now show "AI: x / y (draft)".
+- The "marking started" message vanished when marking finished quickly. The button now stays, disabled with a reason.
+- The worker gave up if it started before the database was migrated. It now retries.
+
+Not checked:
+- A live Claude run. This needs `ANTHROPIC_API_KEY` locally and as a GitHub secret, plus the `ANTHROPIC_MODEL` repository variable, then `npm run eval -- --update-baseline` to record the first real baseline.
+- The Docker image with the worker. My local build was blocked by Docker Hub rate limits (429); the CI `docker` job builds it.
+- Photo marking and transcription (step 4).
+
 ## Step 2 follow-up: school admin read access and feedback sheets (done)
 
 - School admins can open any assignment and pupil in their school read-only, with codes but no names. There are no marking controls. Each view of pupil work is audit logged. Row-level security allows them to read but not change, and refuses deleting approvals for everyone.

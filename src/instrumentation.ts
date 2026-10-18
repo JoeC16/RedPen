@@ -3,7 +3,9 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs" || process.env.MARKING_WORKER === "off") return;
   const { startMarkingWorker } = await import("./server/marking/queue");
-  await startMarkingWorker().catch((err: Error) =>
+  // Not awaited: the worker keeps retrying until the database is ready, and the
+  // web server must not wait for it.
+  void startMarkingWorker().catch((err: Error) =>
     console.error(JSON.stringify({ event: "marking_worker_failed", name: err.name, message: err.message })),
   );
 }
