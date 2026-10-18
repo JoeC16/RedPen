@@ -32,18 +32,25 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Start S3Mock (S3 API for the storage driver test)
+        run: docker run -d --name s3mock -p 9090:9090 -e COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS=redpen-test adobe/s3mock:4.7.0
       - name: Create database roles and databases
         run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f db/bootstrap.sql
       - run: npm ci
       - name: Typecheck
         run: npm run typecheck
       - name: Unit and integration tests (Vitest)
-        run: npm test
+        run: |
+          for i in $(seq 1 30); do curl -sf -o /dev/null http://localhost:9090/ && break; sleep 1; done
+          npm test
+        env:
+          S3_TEST_ENDPOINT: http://localhost:9090
       - name: Tenancy tests with row-level security bypassed (proves the data-access layer alone)
         run: |
           npx vitest run tests/integration/routes.test.ts
           npx vitest run tests/integration/marking.test.ts -t "DAL tenancy"
           npx vitest run tests/integration/marking-engine.test.ts -t "refused for colleagues|another school's work"
+          npx vitest run tests/integration/photos.test.ts -t "is refused for colleagues|nobody else can"
         env:
           TEST_DATABASE_URL: postgres://redpen_owner:redpen_owner_dev@localhost:5432/redpen_test
       - name: Build

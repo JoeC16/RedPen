@@ -116,6 +116,8 @@ async function expectNotFound(page: Page, path: string) {
 }
 
 test("marking pages are closed to colleagues and other schools; writing pages to the school admin", async ({ page }) => {
+  // Four sign-ins and twenty page loads: allow for a busy CI machine.
+  test.setTimeout(90_000);
   const writePaths = [
     `/assignments/${IDS.assignmentNorthgateSci}/work`,
     `/assignments/${IDS.assignmentNorthgateSci}/edit`,
