@@ -6,7 +6,7 @@ import { approval, appUser, authority, markLine, markResult, pupil, submission, 
 import { env } from "../env";
 import { agreement, clampMark, finalTotal, sortQueue, type QueueItem } from "../marking/marks";
 import { requireRole, requireSchool, withTenant, type Ctx } from "../tenancy";
-import { loadAssignment, type AssignmentRow } from "./assignments";
+import { loadAssignment, reader, type AssignmentRow } from "./assignments";
 import { isUuid } from "./ids";
 
 type TeacherCtx = Ctx & { schoolId: string };
@@ -26,8 +26,9 @@ export class MarkingError extends Error {
 
 type PupilRef = { id: string; code: string; displayName: string | null };
 
-function decryptName(enc: string | null): string | null {
-  return enc ? decryptText(enc, env().PUPIL_NAME_KEY) : null;
+/** Pupil names are decrypted for teachers only; school admins see codes. */
+function decryptName(ctx: Ctx, enc: string | null): string | null {
+  return enc && ctx.role === "teacher" ? decryptText(enc, env().PUPIL_NAME_KEY) : null;
 }
 
 async function loadPupil(tx: Tx, ctx: TeacherCtx, a: AssignmentRow, pupilId: string): Promise<PupilRef | null> {
@@ -37,7 +38,7 @@ async function loadPupil(tx: Tx, ctx: TeacherCtx, a: AssignmentRow, pupilId: str
     .from(pupil)
     .where(and(eq(pupil.schoolId, ctx.schoolId), eq(pupil.classId, a.classId), eq(pupil.id, pupilId)));
   const p = rows[0];
-  return p ? { id: p.id, code: p.code, displayName: decryptName(p.enc) } : null;
+  return p ? { id: p.id, code: p.code, displayName: decryptName(ctx, p.enc) } : null;
 }
 
 type SubmissionRow = typeof submission.$inferSelect;
@@ -175,7 +176,7 @@ export type QueueRow = QueueItem & {
 };
 
 export async function reviewQueue(ctx: Ctx, assignmentId: string): Promise<{ assignment: AssignmentRow; rows: QueueRow[] } | null> {
-  const c = teacher(ctx);
+  const c = reader(ctx);
   return withTenant(c, async (tx) => {
     const a = await loadAssignment(tx, c, assignmentId);
     if (!a) return null;
@@ -211,7 +212,7 @@ export async function reviewQueue(ctx: Ctx, assignmentId: string): Promise<{ ass
     const items: QueueRow[] = rows.map((r) => ({
       pupilId: r.pupil_id,
       pupilCode: r.code,
-      displayName: decryptName(r.enc),
+      displayName: decryptName(c, r.enc),
       submissionId: r.submission_id,
       status: r.status ?? "todo",
       absent: r.absent ?? false,
@@ -243,7 +244,7 @@ export type ReviewView = {
 export async function getReview(ctx: Ctx, assignmentId: string, pupilId: string): Promise<ReviewView | null> {
   const queue = await reviewQueue(ctx, assignmentId);
   if (!queue) return null;
-  const c = teacher(ctx);
+  const c = reader(ctx);
   return withTenant(c, async (tx) => {
     const a = queue.assignment;
     const p = await loadPupil(tx, c, a, pupilId);
@@ -268,6 +269,10 @@ export async function getReview(ctx: Ctx, assignmentId: string, pupilId: string)
       const live = approvals.find((x) => x.reopenedAt === null);
       if (live) current = { approvedAt: live.approvedAt, approvedBy: live.approvedBy ?? "", finalTotal: live.finalTotal };
       history = approvals.map((x) => ({ approvedAt: x.approvedAt, reopenedAt: x.reopenedAt, reopenReason: x.reopenReason, finalTotal: x.finalTotal }));
+    }
+    if (c.role === "school_admin" && s) {
+      // Leaders reading pupil work is allowed, and recorded.
+      await recordAudit(tx, c, { action: "submission.viewed", targetType: "submission", targetId: s.id, metadata: { assignmentId: a.id } });
     }
     const order = queue.rows.map((r) => r.pupilId);
     const idx = order.indexOf(p.id);
@@ -499,6 +504,7 @@ export async function moveWork(ctx: Ctx, assignmentId: string, pupilId: string, 
 export type ExportData = {
   assignment: AssignmentRow;
   rows: {
+    pupilId: string;
     code: string;
     name: string | null;
     state: "approved" | "absent" | "not approved";
@@ -511,7 +517,11 @@ export type ExportData = {
 };
 
 /** Approved marks and feedback for the markbook. Unapproved marks are never exported. */
-export async function exportAssignment(ctx: Ctx, assignmentId: string): Promise<ExportData | null> {
+export async function exportAssignment(
+  ctx: Ctx,
+  assignmentId: string,
+  kind: "csv" | "feedback_sheets" = "csv",
+): Promise<ExportData | null> {
   const c = teacher(ctx);
   return withTenant(c, async (tx) => {
     const a = await loadAssignment(tx, c, assignmentId);
@@ -552,8 +562,9 @@ export async function exportAssignment(ctx: Ctx, assignmentId: string): Promise<
         lines = ls.map((l) => l.finalAwarded);
       }
       rows.push({
+        pupilId: p.id,
         code: p.code,
-        name: decryptName(p.enc),
+        name: decryptName(c, p.enc),
         state,
         lines,
         total: state === "approved" ? (r?.approvalTotal ?? null) : null,
@@ -563,7 +574,7 @@ export async function exportAssignment(ctx: Ctx, assignmentId: string): Promise<
       });
     }
     await recordAudit(tx, c, {
-      action: "export.csv",
+      action: kind === "csv" ? "export.csv" : "export.feedback_sheets",
       targetType: "assignment",
       targetId: a.id,
       metadata: { approved: rows.filter((r) => r.state === "approved").length, pupils: rows.length },

@@ -28,7 +28,7 @@ export default async function ClassPage({
   const [pupils, teachers, assignments, staff] = await Promise.all([
     listPupils(user, classId),
     listClassTeachers(user, classId),
-    isTeacher ? listAssignments(user, classId) : Promise.resolve([]),
+    listAssignments(user, classId),
     isTeacher ? Promise.resolve([]) : listSchoolTeachers(user),
   ]);
   const imported = Number((await searchParams).imported);
@@ -44,11 +44,10 @@ export default async function ClassPage({
       </PageTitle>
       {imported > 0 ? <Notice>Imported {imported} {imported === 1 ? "pupil" : "pupils"}.</Notice> : null}
 
-      {isTeacher ? (
-        <section aria-labelledby="assignments-h" className="mb-10">
+      <section aria-labelledby="assignments-h" className="mb-10">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 id="assignments-h" className="text-lg font-medium">Assignments</h2>
-            <Link href={`/classes/${cls.id}/assignments/new`} className={buttonClass}>New assignment</Link>
+            {isTeacher ? <Link href={`/classes/${cls.id}/assignments/new`} className={buttonClass}>New assignment</Link> : null}
           </div>
           {!assignments || assignments.length === 0 ? (
             <Empty>No assignments yet.</Empty>
@@ -66,7 +65,6 @@ export default async function ClassPage({
             </Table>
           )}
         </section>
-      ) : null}
 
       <section aria-labelledby="pupils-h" className="mb-10">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -86,7 +84,7 @@ export default async function ClassPage({
           </Table>
         )}
         {!isTeacher ? (
-          <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">Pupil names, work and marks are visible to the class teachers only.</p>
+          <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">Pupil names are visible to the class teachers only. You can read work and marks; viewing is recorded in the audit log.</p>
         ) : null}
       </section>
 

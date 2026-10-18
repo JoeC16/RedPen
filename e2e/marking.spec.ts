@@ -87,6 +87,20 @@ test("a teacher sets up a class and marks it by hand, end to end", async ({ page
   await expect(page.getByText("Draft. Not final until you approve it.")).toBeVisible();
   await expect(page.getByLabel(/^Q2/)).toBeEnabled();
   await expect(page.getByText(/reopened .*: Pupil query about Q2/)).toBeVisible();
+
+  // 9. Feedback sheets: one printable page per approved pupil.
+  await page.goto(assignmentUrl);
+  await page.getByRole("link", { name: "Feedback sheets (PDF)" }).click();
+  await expect(page.getByRole("button", { name: "Print or save as PDF" })).toBeVisible();
+  const sheets = page.getByRole("article");
+  await expect(sheets).toHaveCount(1); // E2E01 was reopened, so only E2E02 is approved now
+  await expect(sheets.first()).toContainText("E2E02");
+  await expect(sheets.first()).toContainText("Total");
+  await expect(sheets.first()).toContainText("1.5 / 3");
+  await page.emulateMedia({ media: "print" });
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Print or save as PDF" })).toBeHidden();
+  await page.emulateMedia({ media: "screen" });
 });
 
 async function readDownload(d: import("@playwright/test").Download): Promise<string> {
@@ -101,16 +115,17 @@ async function expectNotFound(page: Page, path: string) {
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
 }
 
-test("marking pages are closed to colleagues, other schools and admins", async ({ page }) => {
-  const paths = [
-    `/assignments/${IDS.assignmentNorthgateSci}`,
+test("marking pages are closed to colleagues and other schools; writing pages to the school admin", async ({ page }) => {
+  const writePaths = [
     `/assignments/${IDS.assignmentNorthgateSci}/work`,
     `/assignments/${IDS.assignmentNorthgateSci}/edit`,
+    `/assignments/${IDS.assignmentNorthgateSci}/feedback`,
     `/classes/${IDS.classNorthgateSci}/assignments/new`,
   ];
-  for (const who of ["northgateTeacher2", "riversideTeacher", "northgateAdmin"] as const) {
+  const paths = [`/assignments/${IDS.assignmentNorthgateSci}`, ...writePaths];
+  for (const who of ["northgateTeacher2", "riversideTeacher", "riversideAdmin", "northgateAdmin"] as const) {
     await signIn(page, who);
-    for (const p of paths) await expectNotFound(page, p);
+    for (const p of who === "northgateAdmin" ? writePaths : paths) await expectNotFound(page, p);
     const res = await page.request.get(`/api/assignments/${IDS.assignmentNorthgateSci}/export`);
     expect([403, 404]).toContain(res.status());
     await page.goto("/");
@@ -118,10 +133,25 @@ test("marking pages are closed to colleagues, other schools and admins", async (
   }
 });
 
-test("the school admin sees marking actions in the audit log but no pupil work", async ({ page }) => {
+test("the school admin reads work and marks without names or controls, and the viewing is audited", async ({ page }) => {
   await signIn(page, "northgateAdmin");
+  await page.goto("/classes");
+  await page.getByRole("link", { name: "E2E 9Z" }).click();
+  await page.getByRole("link", { name: "Cells quiz" }).click();
+  await expect(page.getByText(/Read-only view/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Mark next pupil" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Export/ })).toHaveCount(0);
+  await expect(page.getByRole("columnheader", { name: "Name" })).toHaveCount(0);
+  await expect(page.locator("body")).not.toContainText("Ivy Example");
+
+  await page.getByRole("link", { name: "E2E02" }).click();
+  await expect(page.getByText("Mitochondria")).toBeVisible();
+  await expect(page.getByLabel(/^Q2/)).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Reopen marks" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Mark absent/ })).toHaveCount(0);
+
   await page.goto("/audit?action=submission.");
   await expect(page.getByRole("cell", { name: "submission.approved", exact: true }).first()).toBeVisible();
   await expect(page.getByRole("cell", { name: "submission.reopened", exact: true })).toBeVisible();
-  await expect(page.locator("body")).not.toContainText("Chloroplast");
+  await expect(page.getByRole("cell", { name: "submission.viewed", exact: true }).first()).toBeVisible();
 });

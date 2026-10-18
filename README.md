@@ -22,6 +22,7 @@ Sign in as `a.byrne@northgate.test`, then:
 3. **Add typed work** pastes answers for several pupils at once, or add work on each pupil's page. You can also mark from paper without typing anything.
 4. **Mark next pupil** opens the review queue in order: doubtful work first, approved work last. Enter a mark per line (half marks allowed) and feedback, then **Approve and go to next**. There is no "approve all".
 5. **Export approved marks (CSV)** downloads approved marks and feedback for the markbook. Unapproved pupils are listed with no marks.
+6. **Feedback sheets (PDF)** shows one printable page per approved pupil. Choose "Save as PDF" in the print dialog.
 
 Approved marks are locked, in the app and in the database. **Reopen marks** needs a reason, which goes in the audit log. A pupil can be marked absent. Work handed in against the wrong assignment can be moved to another assignment in the same class.
 
@@ -87,7 +88,7 @@ Server actions (all writes) go through the same data-access functions; `tests/in
 | Role | Can see |
 | --- | --- |
 | Authority admin | Schools and staff in their authority, the authority's audit log. No classes, pupils, work or marks, enforced in the database. |
-| School admin | Every class in their school with pupil codes (not names), staff, the school's audit log. Can create classes and share them with teachers. No pupil work or marks. |
+| School admin | Every class in their school with pupil codes (not names), staff, the school's audit log. Can create classes and share them with teachers. Can read (not change) pupil work and marks; each view is audit logged. |
 | Teacher | Their own classes, with pupil names, assignments, work and marks. Not colleagues' classes unless a school admin shares them. No audit log. |
 
 ## Layout

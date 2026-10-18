@@ -27,6 +27,12 @@ function teacher(ctx: Ctx): TeacherCtx {
   return requireSchool(ctx);
 }
 
+/** Teachers, or school admins reading (never writing) their school's work. */
+export function reader(ctx: Ctx): TeacherCtx {
+  requireRole(ctx, "teacher", "school_admin");
+  return requireSchool(ctx);
+}
+
 const columns = {
   id: assignment.id,
   classId: assignment.classId,
@@ -42,17 +48,17 @@ const columns = {
 };
 
 /**
- * Assignments the teacher can see: those in classes they teach, in their school.
- * The one place this rule lives; every read and write below goes through it.
+ * Assignments the user can see: teachers, those in classes they teach; school
+ * admins, every assignment in their school (read-only: writes require the
+ * teacher role first). The one place this rule lives.
  */
 export function visibleAssignments(tx: Tx, ctx: TeacherCtx) {
-  return tx
-    .select(columns)
-    .from(assignment)
-    .innerJoin(schoolClass, eq(schoolClass.id, assignment.classId))
-    .innerJoin(classTeacher, and(eq(classTeacher.classId, assignment.classId), eq(classTeacher.userId, ctx.userId)))
-    .where(eq(assignment.schoolId, ctx.schoolId))
-    .$dynamic();
+  const base = tx.select(columns).from(assignment).innerJoin(schoolClass, eq(schoolClass.id, assignment.classId));
+  const scoped =
+    ctx.role === "school_admin"
+      ? base
+      : base.innerJoin(classTeacher, and(eq(classTeacher.classId, assignment.classId), eq(classTeacher.userId, ctx.userId)));
+  return scoped.where(eq(assignment.schoolId, ctx.schoolId)).$dynamic();
 }
 
 export async function loadAssignment(tx: Tx, ctx: TeacherCtx, id: string): Promise<AssignmentRow | null> {
@@ -63,6 +69,13 @@ export async function loadAssignment(tx: Tx, ctx: TeacherCtx, id: string): Promi
 
 async function teachesClass(tx: Tx, ctx: TeacherCtx, classId: string): Promise<boolean> {
   if (!isUuid(classId)) return false;
+  if (ctx.role === "school_admin") {
+    const rows = await tx
+      .select({ id: schoolClass.id })
+      .from(schoolClass)
+      .where(and(eq(schoolClass.schoolId, ctx.schoolId), eq(schoolClass.id, classId)));
+    return rows.length > 0;
+  }
   const rows = await tx
     .select({ id: classTeacher.classId })
     .from(classTeacher)
@@ -73,15 +86,15 @@ async function teachesClass(tx: Tx, ctx: TeacherCtx, classId: string): Promise<b
 }
 
 export async function getAssignment(ctx: Ctx, id: string): Promise<AssignmentRow | null> {
-  const c = teacher(ctx);
+  const c = reader(ctx);
   return withTenant(c, (tx) => loadAssignment(tx, c, id));
 }
 
 export type AssignmentListItem = AssignmentRow & { approved: number; submitted: number };
 
 export async function listAssignments(ctx: Ctx, classId: string): Promise<AssignmentListItem[] | null> {
-  if (ctx.role !== "teacher") return [];
-  const c = teacher(ctx);
+  if (ctx.role === "authority_admin") return [];
+  const c = reader(ctx);
   return withTenant(c, async (tx) => {
     if (!(await teachesClass(tx, c, classId))) return null;
     return visibleAssignments(tx, c)

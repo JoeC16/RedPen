@@ -24,7 +24,8 @@ export default async function ReviewPage({
   searchParams: Promise<{ approved?: string; moved?: string }>;
 }) {
   const user = await requirePageUser();
-  if (user.role !== "teacher") notFound();
+  if (user.role === "authority_admin") notFound();
+  const readOnly = user.role !== "teacher";
   const { assignmentId, pupilId } = await params;
   const v = await getReview(user, assignmentId, pupilId);
   if (!v) notFound();
@@ -32,7 +33,7 @@ export default async function ReviewPage({
   const { assignment: a, pupil: p, submission: s } = v;
   const locked = s?.status === "approved";
   const absent = s?.absent ?? false;
-  const others = (await listAssignments(user, a.classId))?.filter((x) => x.id !== a.id).map((x) => ({ id: x.id, title: x.title })) ?? [];
+  const others = readOnly ? [] : (await listAssignments(user, a.classId))?.filter((x) => x.id !== a.id).map((x) => ({ id: x.id, title: x.title })) ?? [];
   const status = s?.status ?? "todo";
   const reopened = v.history.filter((h) => h.reopenedAt);
 
@@ -72,7 +73,7 @@ export default async function ReviewPage({
           ) : (
             <p className="rounded border border-dashed border-gray-400 p-4">No typed work yet. You can still mark from paper.</p>
           )}
-          {!locked ? (
+          {!locked && !readOnly ? (
             <>
               {!absent ? <WorkEditor assignmentId={a.id} pupilId={p.id} text={s?.text ?? ""} open={!s?.text} /> : null}
               <form action={setAbsentAction.bind(null, a.id, p.id)} className="mt-4">
@@ -95,7 +96,9 @@ export default async function ReviewPage({
               Approved by {v.approval.approvedBy} on {fmt.format(v.approval.approvedAt)}: {v.approval.finalTotal} / {a.totalMarks}. Marks are locked.
             </p>
           ) : (
-            <p className="mb-4 text-sm text-gray-700 dark:text-gray-300">Draft. Not final until you approve it.</p>
+            <p className="mb-4 text-sm text-gray-700 dark:text-gray-300">
+              {readOnly ? "Draft. Not final until a class teacher approves it." : "Draft. Not final until you approve it."}
+            </p>
           )}
           <MarksForm
             key={`${p.id}-${locked ? "locked" : "open"}-${a.schemeVersion}`}
@@ -105,10 +108,17 @@ export default async function ReviewPage({
             lines={v.lines}
             feedback={s?.feedback ?? ""}
             totalMarks={a.totalMarks}
-            locked={locked}
-            disabledReason={absent ? "Mark the pupil present to enter marks." : null}
+            locked={locked || readOnly}
+            disabledReason={readOnly ? "Read-only view. Marks are entered and approved by the class teachers." : absent ? "Mark the pupil present to enter marks." : null}
           />
-          {locked ? <div className="mt-6"><ReopenForm assignmentId={a.id} pupilId={p.id} /></div> : null}
+          {locked && !readOnly ? (
+            <div className="mt-6 space-y-4">
+              <p>
+                <Link href={`/assignments/${a.id}/feedback?pupil=${p.id}`} className={linkClass}>Feedback sheet for {p.code} (PDF)</Link>
+              </p>
+              <ReopenForm assignmentId={a.id} pupilId={p.id} />
+            </div>
+          ) : null}
           {reopened.length > 0 ? (
             <section aria-labelledby="history-h" className="mt-6 text-sm">
               <h3 id="history-h" className="font-medium">Earlier approvals</h3>

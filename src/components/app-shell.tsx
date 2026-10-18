@@ -15,7 +15,7 @@ export async function AppShell({ user, children }: { user: SessionUser; children
   const [authority, schoolName] = await Promise.all([getAuthority(user), ownSchoolName(user)]);
   return (
     <>
-      <header className="border-b border-gray-200 dark:border-gray-800">
+      <header className="border-b border-gray-200 print:hidden dark:border-gray-800">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
           <Link href="/" className="text-lg font-semibold text-accent dark:text-red-300">
             {appName}

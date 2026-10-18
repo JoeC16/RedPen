@@ -18,7 +18,8 @@ export default async function AssignmentPage({
   searchParams: Promise<{ added?: string; saved?: string; done?: string }>;
 }) {
   const user = await requirePageUser();
-  if (user.role !== "teacher") notFound();
+  if (user.role === "authority_admin") notFound();
+  const isTeacher = user.role === "teacher";
   const q = await reviewQueue(user, (await params).assignmentId);
   if (!q) notFound();
   const { assignment: a, rows } = q;
@@ -32,12 +33,15 @@ export default async function AssignmentPage({
       <p className="mb-2 text-sm"><Link href={`/classes/${a.classId}`} className={linkClass}>{a.className}</Link></p>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <PageTitle description={`${a.className} · ${workTypeLabel[a.workType]} · out of ${a.totalMarks}`}>{a.title}</PageTitle>
-        <div className="flex flex-wrap gap-2">
-          {next ? <Link href={`/assignments/${a.id}/pupils/${next.pupilId}`} className={buttonClass}>Mark next pupil</Link> : null}
-          <Link href={`/assignments/${a.id}/work`} className={secondaryButtonClass}>Add typed work</Link>
-          <Link href={`/assignments/${a.id}/edit`} className={secondaryButtonClass}>Edit assignment</Link>
-          <a href={`/api/assignments/${a.id}/export`} className={secondaryButtonClass}>Export approved marks (CSV)</a>
-        </div>
+        {isTeacher ? (
+          <div className="flex flex-wrap gap-2">
+            {next ? <Link href={`/assignments/${a.id}/pupils/${next.pupilId}`} className={buttonClass}>Mark next pupil</Link> : null}
+            <Link href={`/assignments/${a.id}/work`} className={secondaryButtonClass}>Add typed work</Link>
+            <Link href={`/assignments/${a.id}/edit`} className={secondaryButtonClass}>Edit assignment</Link>
+            <a href={`/api/assignments/${a.id}/export`} className={secondaryButtonClass}>Export approved marks (CSV)</a>
+            {approved > 0 ? <Link href={`/assignments/${a.id}/feedback`} className={secondaryButtonClass}>Feedback sheets (PDF)</Link> : null}
+          </div>
+        ) : null}
       </div>
 
       {sp.added ? <Notice>Saved work for {sp.added} {sp.added === "1" ? "pupil" : "pupils"}.</Notice> : null}
@@ -46,21 +50,22 @@ export default async function AssignmentPage({
       {sp.done ? <Notice>Everyone with work has been approved.</Notice> : null}
 
       <p className="mb-4">
-        {approved} of {rows.length} approved{absent ? `, ${absent} absent` : ""}. Nothing reaches a pupil until you approve it.
+        {approved} of {rows.length} approved{absent ? `, ${absent} absent` : ""}.{" "}
+        {isTeacher ? "Nothing reaches a pupil until you approve it." : "Read-only view. Marking and approval are done by the class teachers; your viewing of pupil work is recorded in the audit log."}
       </p>
 
       {rows.length === 0 ? (
         <Empty>
-          This class has no pupils yet. <Link href={`/classes/${a.classId}/import`} className={linkClass}>Import pupils</Link>.
+          This class has no pupils yet.{isTeacher ? <> <Link href={`/classes/${a.classId}/import`} className={linkClass}>Import pupils</Link>.</> : null}
         </Empty>
       ) : (
-        <Table caption="Review queue: work needing attention first" head={["Pupil", "Name", "Work", "Status", "Mark"]}>
+        <Table caption="Review queue: work needing attention first" head={isTeacher ? ["Pupil", "Name", "Work", "Status", "Mark"] : ["Pupil", "Work", "Status", "Mark"]}>
           {rows.map((r) => (
             <tr key={r.pupilId}>
               <Td className="font-mono">
                 <Link href={`/assignments/${a.id}/pupils/${r.pupilId}`} className={linkClass}>{r.pupilCode}</Link>
               </Td>
-              <Td>{r.displayName ?? ""}</Td>
+              {isTeacher ? <Td>{r.displayName ?? ""}</Td> : null}
               <Td>{r.absent ? "—" : r.hasWork ? "Added" : "None yet"}</Td>
               <Td><StatusBadge status={r.status} absent={r.absent} /></Td>
               <Td>{r.total !== null ? `${r.total} / ${a.totalMarks}${r.status === "approved" ? "" : " (draft)"}` : ""}</Td>
