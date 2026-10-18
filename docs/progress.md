@@ -40,7 +40,7 @@ Checked by hand in a browser (light and dark): the bulk upload page and the revi
 - Bulk uploads numbered `NG01-2.jpg` as page 1 before `NG01.jpg`. Files are now ordered by name without the extension.
 - A transcription made from photos that were later changed gave no warning. It now does.
 - A storage key starting with `/` was not explicitly refused by the local driver. It is now.
-- One browser test that loops over 4 users and 20 pages timed out once on a slow run. It now has a 90-second budget sized to its work.
+- One browser test occasionally hung when signing in the next user. It moved on before sign-out had finished, so `/login` redirected the still-signed-in user and the email field never appeared. It now waits for sign-out to complete. My first guess, slowness, was wrong: a longer time limit didn't fix it in CI.
 
 Not checked:
 - Live AI transcription of real handwriting (no API key here). This is the main thing to try with a key: real phone photos of maths working.
