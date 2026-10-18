@@ -27,6 +27,7 @@ export const authority = pgTable("authority", {
   retentionDays: integer("retention_days").notNull().default(30),
   isDemo: boolean("is_demo").notNull().default(false),
   createdAt: createdAt(),
+  timeSavedMinutes: jsonb("time_saved_minutes").$type<Record<"short" | "maths" | "essay", number>>().notNull(),
 });
 
 export const school = pgTable("school", {
@@ -135,6 +136,7 @@ export const submission = pgTable("submission", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   deleteAfter: timestamp("delete_after", { withTimezone: true }),
   failureReason: text("failure_reason"),
+  contentDeletedAt: timestamp("content_deleted_at", { withTimezone: true }),
 });
 
 export const markResult = pgTable("mark_result", {
@@ -221,4 +223,28 @@ export const submissionFile = pgTable("submission_file", {
   namesConfirmedBy: uuid("names_confirmed_by").notNull(),
   namesConfirmedAt: timestamp("names_confirmed_at", { withTimezone: true }).notNull(),
   createdAt: createdAt(),
+});
+
+// ---------------------------------------------------------------------------
+// 0006 oversight
+// ---------------------------------------------------------------------------
+export const pendingObjectDeletion = pgTable("pending_object_deletion", {
+  storageKey: text("storage_key").primaryKey(),
+  schoolId: uuid("school_id").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  createdAt: createdAt(),
+});
+
+export const schoolDeletionRequest = pgTable("school_deletion_request", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  schoolId: uuid("school_id").notNull(),
+  authorityId: uuid("authority_id").notNull(),
+  requestedBy: uuid("requested_by").notNull(),
+  requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  confirmedBy: uuid("confirmed_by"),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  cancelledBy: uuid("cancelled_by"),
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+  result: jsonb("result").$type<Record<string, number>>(),
 });
