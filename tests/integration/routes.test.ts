@@ -1,10 +1,15 @@
 // First line of defence, end to end through the actual route handlers: for
 // every API route, a user from school A gets nothing from school B.
-import { readdirSync, statSync } from "node:fs";
+import { mkdtempSync, readdirSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { addPhoto } from "@/server/dal/photos";
 import { closeDb } from "@/server/db/client";
-import { IDS, type FixtureUser } from "../helpers";
+import { setStorageForTests } from "@/server/storage";
+import { LocalStorage } from "@/server/storage/local";
+import { signedFileUrl } from "@/server/storage/signed-url";
+import { IDS, adminConn, ctxOf, type FixtureUser } from "../helpers";
 
 const session = vi.hoisted(() => ({ userId: null as string | null }));
 vi.mock("@/auth", () => ({
@@ -14,15 +19,46 @@ vi.mock("@/auth", () => ({
   handlers: {},
 }));
 
-afterAll(closeDb);
+beforeAll(async () => {
+  setStorageForTests(new LocalStorage(mkdtempSync(path.join(tmpdir(), "redpen-routes-"))));
+  const owners: [School, FixtureUser, string][] = [
+    ["A", "northgateTeacher1", IDS.assignmentNorthgateSci],
+    ["B", "riversideTeacher", IDS.assignmentRiversideSci],
+    ["C", "otherTeacher", IDS.assignmentOtherMaths],
+  ];
+  for (const [school, who, assignmentId] of owners) {
+    const code = { A: "NG9S06", B: "RV9X06", C: "OT11A06" }[school];
+    const r = await addPhoto(await ctxOf(who), assignmentId, { fileName: `${code}.jpg`, bytes: TINY_JPEG, namesConfirmed: true });
+    fileIds[school] = r.fileId;
+  }
+});
+
+afterAll(async () => {
+  await adminConn()`delete from submission where assignment_id in (${IDS.assignmentNorthgateSci}, ${IDS.assignmentRiversideSci}, ${IDS.assignmentOtherMaths})`;
+  await adminConn().end();
+  setStorageForTests(undefined);
+  await closeDb();
+});
 beforeEach(() => {
   session.userId = null;
 });
 
 type Handler = (req: Request, ctx: { params: Promise<Record<string, string>> }) => Promise<Response>;
 
+type School = "A" | "B" | "C";
+type RouteSpec = {
+  load: () => Promise<unknown>;
+  target: (school: School) => Record<string, string>;
+  method?: "GET" | "POST";
+  /** Build the request (body, signed query) for this caller. */
+  request?: (url: string, userId: string, school: School) => Request;
+};
+
+/** One fixture photo per school, created in beforeAll for the file route. */
+const fileIds: Record<School, string> = { A: "", B: "", C: "" };
+
 /** Every API route, with the params needed to aim it at a given school's data. */
-const ROUTES: Record<string, { load: () => Promise<unknown>; target: (school: "A" | "B" | "C") => Record<string, string> }> = {
+const ROUTES: Record<string, RouteSpec> = {
   "api/me": { load: () => import("@/app/api/me/route"), target: () => ({}) },
   "api/schools": { load: () => import("@/app/api/schools/route"), target: () => ({}) },
   "api/schools/[schoolId]": {
@@ -43,13 +79,34 @@ const ROUTES: Record<string, { load: () => Promise<unknown>; target: (school: "A
     load: () => import("@/app/api/assignments/[assignmentId]/export/route"),
     target: (s) => ({ assignmentId: { A: IDS.assignmentNorthgateSci, B: IDS.assignmentRiversideSci, C: IDS.assignmentOtherMaths }[s] }),
   },
+  "api/assignments/[assignmentId]/photos": {
+    load: () => import("@/app/api/assignments/[assignmentId]/photos/route"),
+    method: "POST",
+    target: (s) => ({ assignmentId: { A: IDS.assignmentNorthgateSci, B: IDS.assignmentRiversideSci, C: IDS.assignmentOtherMaths }[s] }),
+    request: (url, _userId, s) => {
+      const body = new FormData();
+      // Named with a pupil code from the targeted school, so a leak would succeed.
+      body.set("file", new File([TINY_JPEG], `${{ A: "NG9S01", B: "RV9X01", C: "OT11A01" }[s]}.jpg`, { type: "image/jpeg" }));
+      body.set("namesConfirmed", "yes");
+      return new Request(url, { method: "POST", body });
+    },
+  },
+  "api/files/[fileId]": {
+    load: () => import("@/app/api/files/[fileId]/route"),
+    target: (s) => ({ fileId: fileIds[s] }),
+    // A correctly signed link for the caller: the route must still refuse other schools' files.
+    request: (url, userId, s) => new Request(`http://localhost${signedFileUrl(fileIds[s], userId)}`),
+  },
 };
+
+const TINY_JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xda, 0, 4, 1, 0, 0x11, 0x22, 0xff, 0xd9]);
 
 /** Routes that are deliberately not tenant-scoped. */
 const EXEMPT = new Set(["api/auth/[...nextauth]", "api/health"]);
 
 async function handler(route: string): Promise<Handler> {
-  return ((await ROUTES[route]!.load()) as { GET: Handler }).GET;
+  const mod = (await ROUTES[route]!.load()) as Record<string, Handler>;
+  return mod[ROUTES[route]!.method ?? "GET"]!;
 }
 
 function discoverRoutes(dir: string, base = dir): string[] {
@@ -66,7 +123,8 @@ async function call(route: string, as: FixtureUser | null, school: "A" | "B" | "
   const GET = await handler(route);
   const params = r.target(school);
   const url = `http://localhost/${route.replace(/\[(\w+)\]/g, (_, k: string) => params[k] ?? "")}${query}`;
-  const res = await GET(new Request(url), { params: Promise.resolve(params) });
+  const req = r.request ? r.request(url, session.userId ?? "anonymous", school) : new Request(url);
+  const res = await GET(req, { params: Promise.resolve(params) });
   const text = await res.text();
   const body = res.headers.get("content-type")?.includes("json") ? (JSON.parse(text) as Record<string, unknown>) : { raw: text };
   return { status: res.status, body };
@@ -145,6 +203,30 @@ describe("cross-school and cross-authority access", () => {
   it("admins cannot export pupil marks", async () => {
     expect((await call("api/assignments/[assignmentId]/export", "northgateAdmin", "A")).status).toBe(403);
     expect((await call("api/assignments/[assignmentId]/export", "authorityAdmin", "A")).status).toBe(403);
+  });
+
+  it("an upload aimed at another school's assignment is refused and stores nothing", async () => {
+    const before = await adminConn()`select count(*)::int as n from submission_file where school_id <> ${IDS.schoolNorthgate}`;
+    for (const school of ["B", "C"] as const) {
+      expect((await call("api/assignments/[assignmentId]/photos", "northgateTeacher1", school)).status).toBe(404);
+      expect((await call("api/assignments/[assignmentId]/photos", "northgateAdmin", school)).status).toBe(403);
+    }
+    const after = await adminConn()`select count(*)::int as n from submission_file where school_id <> ${IDS.schoolNorthgate}`;
+    expect(after[0]!.n).toBe(before[0]!.n);
+  });
+
+  it("a photo link needs a valid signature for this user, even for the class teacher", async () => {
+    session.userId = IDS.northgateTeacher1;
+    const GET = await handler("api/files/[fileId]");
+    const params = { params: Promise.resolve({ fileId: fileIds.A }) };
+    const good = signedFileUrl(fileIds.A, IDS.northgateTeacher1);
+    expect((await GET(new Request(`http://localhost${good}`), params)).status).toBe(200);
+    expect((await GET(new Request(`http://localhost/api/files/${fileIds.A}`), params)).status).toBe(403);
+    const forSomeoneElse = signedFileUrl(fileIds.A, IDS.northgateAdmin);
+    expect((await GET(new Request(`http://localhost${forSomeoneElse}`), params)).status).toBe(403);
+    const res = await GET(new Request(`http://localhost${good}`), params);
+    expect(res.headers.get("cache-control")).toBe("private, no-store");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
   it("teachers cannot read the audit log", async () => {

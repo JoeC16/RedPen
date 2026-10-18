@@ -25,9 +25,10 @@ export class DemoProvider implements MarkingProvider {
 
   async mark(req: MarkingRequest): Promise<ProviderResponse> {
     const started = Date.now();
-    const fixed = FIXED.get(demoKey(req.workType, req.schemeText, req.pupilText));
+    const photos = req.images?.length ?? 0;
+    const fixed = photos ? undefined : FIXED.get(demoKey(req.workType, req.schemeText, req.pupilText));
     const raw: MarkingResult = fixed ?? {
-      transcription: "",
+      transcription: photos ? `Demo mode: the ${photos === 1 ? "photo was" : `${photos} photos were`} not read. With the live AI, the working is typed out here, line by line, next to the photo.` : "",
       criteria: req.criteria.map((c) => ({
         point: c.label,
         awarded: 0,
@@ -37,7 +38,11 @@ export class DemoProvider implements MarkingProvider {
       })),
       feedback: "",
       confidence: "low",
-      flags: ["Demo mode: this work is not one of the demo examples, so no marks were proposed. Mark it yourself."],
+      flags: [
+        photos
+          ? "Demo mode: photos are not read in demo mode, so no marks were proposed. Mark it yourself."
+          : "Demo mode: this work is not one of the demo examples, so no marks were proposed. Mark it yourself.",
+      ],
     };
     return {
       raw: structuredClone(raw),

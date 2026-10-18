@@ -38,7 +38,8 @@ export class ClaudeProvider implements MarkingProvider {
   }
 
   async mark(req: MarkingRequest): Promise<ProviderResponse> {
-    const { system, user } = buildPrompt(req);
+    const images = req.images ?? [];
+    const { system, user } = buildPrompt({ ...req, hasPhotos: images.length > 0 });
     const started = Date.now();
     let message: Anthropic.Beta.BetaMessage;
     try {
@@ -46,7 +47,18 @@ export class ClaudeProvider implements MarkingProvider {
         model: this.config.model,
         max_tokens: 16000,
         system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
-        messages: [{ role: "user", content: user }],
+        messages: [
+          {
+            role: "user",
+            content: [
+              ...images.map((img) => ({
+                type: "image" as const,
+                source: { type: "base64" as const, media_type: img.mediaType, data: img.data.toString("base64") },
+              })),
+              { type: "text" as const, text: user },
+            ],
+          },
+        ],
         output_config: {
           format: { type: "json_schema", schema: markingResultJsonSchema as unknown as Record<string, unknown> },
           ...(this.config.effort ? { effort: this.config.effort } : {}),

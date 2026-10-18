@@ -8,11 +8,13 @@ import { env } from "../env";
 import { agreement, clampMark, finalTotal, sortQueue, type QueueItem } from "../marking/marks";
 import { requireRole, requireSchool, withTenant, type Ctx } from "../tenancy";
 import { loadAssignment, reader, type AssignmentRow } from "./assignments";
+import { photosFor, type PhotoView } from "./photos";
 import { isUuid } from "./ids";
 
 type TeacherCtx = Ctx & { schoolId: string };
 
-function teacher(ctx: Ctx): TeacherCtx {
+/** @internal data-access layer only */
+export function teacher(ctx: Ctx): TeacherCtx {
   requireRole(ctx, "teacher");
   return requireSchool(ctx);
 }
@@ -53,7 +55,8 @@ async function findSubmission(tx: Tx, ctx: TeacherCtx, assignmentId: string, pup
   return rows[0] ?? null;
 }
 
-async function ensureSubmission(tx: Tx, ctx: TeacherCtx, a: AssignmentRow, pupilId: string): Promise<SubmissionRow> {
+/** @internal data-access layer only */
+export async function ensureSubmission(tx: Tx, ctx: TeacherCtx, a: AssignmentRow, pupilId: string): Promise<SubmissionRow> {
   const existing = await findSubmission(tx, ctx, a.id, pupilId, true);
   if (existing) return existing;
   await tx
@@ -79,6 +82,8 @@ export type LineView = {
 
 type RunView = {
   id: string;
+  /** The photos this run read (AI runs). */
+  inputFileIds: string[];
   runNumber: number;
   source: "manual" | "ai";
   confidence: "high" | "medium" | "low" | null;
@@ -121,6 +126,7 @@ async function currentRun(tx: Tx, ctx: TeacherCtx, s: SubmissionRow, a: Assignme
     .orderBy(asc(markLine.position));
   return {
     id: run.id,
+    inputFileIds: run.inputFileIds,
     runNumber: run.runNumber,
     source: run.source,
     confidence: run.confidence,
@@ -166,7 +172,7 @@ async function startManualRun(tx: Tx, ctx: TeacherCtx, s: SubmissionRow, a: Assi
   await tx.insert(markLine).values(
     lines.map((l) => ({ markResultId: id, classId: s.classId, schoolId: ctx.schoolId, position: l.position, label: l.label, max: l.max })),
   );
-  return { id, runNumber, source: "manual", confidence: null, flags: [], transcription: null, feedbackDraft: null, lines };
+  return { id, inputFileIds: [], runNumber, source: "manual", confidence: null, flags: [], transcription: null, feedbackDraft: null, lines };
 }
 
 // ---------------------------------------------------------------------------
@@ -180,6 +186,7 @@ export type QueueRow = QueueItem & {
   total: number | null;
   /** The AI's suggested total, when every line has a suggestion. */
   aiTotal: number | null;
+  photoCount: number;
 };
 
 export async function reviewQueue(ctx: Ctx, assignmentId: string): Promise<{ assignment: AssignmentRow; rows: QueueRow[] } | null> {
@@ -196,6 +203,7 @@ export async function reviewQueue(ctx: Ctx, assignmentId: string): Promise<{ ass
       status: SubmissionStatus | null;
       absent: boolean | null;
       has_work: boolean;
+      photo_count: number | null;
       confidence: "high" | "medium" | "low" | null;
       flag_count: number | null;
       total: string | null;
@@ -205,7 +213,9 @@ export async function reviewQueue(ctx: Ctx, assignmentId: string): Promise<{ ass
     }>(sql`
       select p.id as pupil_id, p.code, p.display_name_enc as enc,
              s.id as submission_id, s.status, s.absent,
-             (s.text is not null and length(s.text) > 0) as has_work,
+             ((s.text is not null and length(s.text) > 0)
+               or exists (select 1 from submission_file f where f.submission_id = s.id)) as has_work,
+             (select count(*)::int from submission_file f where f.submission_id = s.id) as photo_count,
              r.confidence, jsonb_array_length(r.flags) as flag_count,
              (select sum(final_awarded) from mark_line l where l.mark_result_id = r.id) as total,
              (select count(*)::int from mark_line l where l.mark_result_id = r.id and l.final_awarded is null) as unmarked,
@@ -228,6 +238,7 @@ export async function reviewQueue(ctx: Ctx, assignmentId: string): Promise<{ ass
       status: r.status ?? "todo",
       absent: r.absent ?? false,
       hasWork: r.has_work ?? false,
+      photoCount: r.photo_count ?? 0,
       confidence: r.confidence,
       flagCount: r.flag_count ?? 0,
       total: r.total !== null && r.unmarked === 0 ? Number(r.total) : null,
@@ -253,6 +264,7 @@ export type ReviewView = {
     failureReason: string | null;
   } | null;
   run: RunView | null;
+  photos: PhotoView[];
   lines: LineView[];
   approval: { approvedAt: Date; approvedBy: string; finalTotal: number } | null;
   history: { approvedAt: Date; reopenedAt: Date | null; reopenReason: string | null; finalTotal: number }[];
@@ -302,6 +314,7 @@ export async function getReview(ctx: Ctx, assignmentId: string, pupilId: string)
         ? { id: s.id, text: s.text, absent: s.absent, status: s.status, feedback: s.feedback, failureReason: s.failureReason }
         : null,
       run,
+      photos: s ? await photosFor(tx, c, s.id) : [],
       lines: run?.lines ?? blankLines(a),
       approval: current,
       history,
@@ -315,7 +328,8 @@ export async function getReview(ctx: Ctx, assignmentId: string, pupilId: string)
 // Writes
 // ---------------------------------------------------------------------------
 
-async function context(tx: Tx, c: TeacherCtx, assignmentId: string, pupilId: string) {
+/** @internal data-access layer only: the assignment and pupil, if the teacher may see both. */
+export async function context(tx: Tx, c: TeacherCtx, assignmentId: string, pupilId: string) {
   const a = await loadAssignment(tx, c, assignmentId);
   if (!a) return null;
   const p = await loadPupil(tx, c, a, pupilId);
@@ -323,7 +337,8 @@ async function context(tx: Tx, c: TeacherCtx, assignmentId: string, pupilId: str
   return { a, p };
 }
 
-function assertUnlocked(s: SubmissionRow) {
+/** @internal data-access layer only */
+export function assertUnlocked(s: SubmissionRow) {
   if (s.status === "approved") throw new MarkingError("This work is approved. Reopen it to make changes.");
 }
 
@@ -556,7 +571,7 @@ export async function startMarking(ctx: Ctx, assignmentId: string, pupilId?: str
           eq(submission.schoolId, c.schoolId),
           eq(submission.assignmentId, a.id),
           eq(submission.absent, false),
-          sql`coalesce(length(trim(${submission.text})), 0) > 0`,
+          sql`(coalesce(length(trim(${submission.text})), 0) > 0 or exists (select 1 from submission_file f where f.submission_id = ${submission.id}))`,
           eligibleStatus,
           ...(pupilId ? [eq(submission.pupilId, pupilId)] : []),
         ),

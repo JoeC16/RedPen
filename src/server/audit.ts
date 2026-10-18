@@ -26,6 +26,8 @@ export type AuditAction =
   | "submission.reopened"
   | "submission.viewed"
   | "marking.requested"
+  | "photo.uploaded"
+  | "photo.deleted"
   | "export.csv"
   | "export.feedback_sheets";
 

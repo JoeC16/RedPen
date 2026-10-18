@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { decryptText } from "../crypto";
 import { loadAssignment } from "../dal/assignments";
+import { photosForMarking } from "../dal/photos";
 import { markLine, markResult, submission } from "../db/schema";
 import { env } from "../env";
 import { withTenant, type Ctx } from "../tenancy";
@@ -56,7 +57,8 @@ export async function runMarkingJob(
     const a = await loadAssignment(tx, ctx, s.assignmentId);
     if (!a) return null;
     const names = await tx.execute<{ kind: string; value: string }>(sql`select kind, value from app_school_name_list()`);
-    return { s, a, names };
+    const photos = await photosForMarking(tx, ctx.schoolId, s.id);
+    return { s, a, names, photos };
   });
   if (!loaded) {
     log({ submissionId: job.submissionId, outcome: "skipped" });
@@ -64,8 +66,8 @@ export async function runMarkingJob(
   }
   const { s, a } = loaded;
   const original = s.text ?? "";
-  if (!original.trim()) {
-    await setFailed(ctx, s.id, "There is no typed work to mark. Add the pupil's work, or mark from paper.");
+  if (!original.trim() && loaded.photos.length === 0) {
+    await setFailed(ctx, s.id, "There is no typed work or photo to mark. Add the pupil's work, or mark from paper.");
     return "failed";
   }
 
@@ -79,13 +81,20 @@ export async function runMarkingJob(
   try {
     proposal = await propose(
       provider,
-      { workType: a.workType, schemeText: a.schemeText, totalMarks: a.totalMarks, criteria: a.criteria, pupilText: redacted.text },
+      {
+        workType: a.workType,
+        schemeText: a.schemeText,
+        totalMarks: a.totalMarks,
+        criteria: a.criteria,
+        pupilText: redacted.text,
+        images: loaded.photos.map((p) => ({ mediaType: p.contentType, data: p.bytes })),
+      },
       a.criteria,
       original,
     );
   } catch (err) {
     const pe = err instanceof ProviderError ? err : new ProviderError("Marking failed unexpectedly.", true);
-    log({ submissionId: s.id, outcome: pe.retryable && !opts.finalAttempt ? "retry" : "failed", retryable: pe.retryable });
+    log({ submissionId: s.id, outcome: pe.retryable && !opts.finalAttempt ? "retry" : "failed", retryable: pe.retryable, photos: loaded.photos.length });
     if (pe.retryable && !opts.finalAttempt) throw pe;
     await setFailed(ctx, s.id, pe.message);
     return "failed";
@@ -124,6 +133,7 @@ export async function runMarkingJob(
       latencyMs: proposal.meta.latencyMs,
       createdBy: ctx.userId,
       jobId: job.jobId,
+      inputFileIds: loaded.photos.map((p) => p.id),
     });
     await tx.insert(markLine).values(
       proposal.lines.map((l, i) => ({
@@ -157,6 +167,7 @@ export async function runMarkingJob(
     tokensOut: proposal.meta.tokensOut,
     attempts: proposal.attempts,
     namesRedacted: redacted.count,
+    photos: loaded.photos.length,
   });
   return outcome;
 }
