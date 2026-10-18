@@ -159,6 +159,7 @@ export const markResult = pgTable("mark_result", {
   createdAt: createdAt(),
   jobId: text("job_id"),
   cacheReadTokens: integer("cache_read_tokens"),
+  inputFileIds: uuid("input_file_ids").array().notNull().default([]),
 });
 
 export const markLine = pgTable("mark_line", {
@@ -201,5 +202,23 @@ export const markingRequest = pgTable("marking_request", {
   schoolId: uuid("school_id").notNull(),
   userId: uuid("user_id").notNull(),
   submissionId: uuid("submission_id").notNull(),
+  createdAt: createdAt(),
+});
+
+// ---------------------------------------------------------------------------
+// 0005 photos
+// ---------------------------------------------------------------------------
+export const submissionFile = pgTable("submission_file", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  submissionId: uuid("submission_id").notNull(),
+  classId: uuid("class_id").notNull(),
+  schoolId: uuid("school_id").notNull(),
+  position: smallint("position").notNull(),
+  storageKey: text("storage_key").notNull(),
+  contentType: text("content_type").$type<"image/jpeg" | "image/png" | "image/webp">().notNull(),
+  bytes: integer("bytes").notNull(),
+  originalName: text("original_name"),
+  namesConfirmedBy: uuid("names_confirmed_by").notNull(),
+  namesConfirmedAt: timestamp("names_confirmed_at", { withTimezone: true }).notNull(),
   createdAt: createdAt(),
 });
