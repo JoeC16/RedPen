@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { signOut } from "@/auth";
 import { appName } from "@/config";
 import { getAuthority, ownSchoolName } from "@/server/dal/schools";
+import { markingMode } from "@/server/marking/config";
 import { navFor, roleLabel } from "@/server/roles";
 import type { SessionUser } from "@/server/session";
 
@@ -55,6 +56,11 @@ export async function AppShell({ user, children }: { user: SessionUser; children
           </div>
         </div>
       </header>
+      {markingMode() === "demo" && user.role !== "authority_admin" ? (
+        <p role="note" className="border-b border-amber-600 bg-amber-50 px-4 py-2 text-center text-sm text-amber-950 print:hidden dark:bg-amber-950 dark:text-amber-100">
+          <strong>Demo mode:</strong> AI marking uses built-in example results, not the live AI.
+        </p>
+      ) : null}
       <main id="main" className="mx-auto max-w-6xl px-4 py-8">
         {children}
       </main>

@@ -1,0 +1,63 @@
+{
+  "id": "maths-01",
+  "provenance": "Synthetic example written by Claude for development. The reference marks are Claude's, not a teacher's. Replace with teacher-marked work before quoting agreement figures.",
+  "workType": "maths",
+  "title": "Algebra and area",
+  "yearGroup": 10,
+  "subject": "Mathematics",
+  "schemeText": "Q1 Expand and simplify 3(x + 4) - 2(x - 1). (2) M1 both brackets expanded correctly: 3x + 12 - 2x + 2. A1 x + 14.\nQ2 Solve 5x - 7 = 2x + 8. (2) M1 collecting x terms and numbers correctly, e.g. 3x = 15. A1 x = 5.\nQ3 A rectangle is (2x + 3) cm long and 4 cm wide. Its area is 44 cm^2. Find x. (3) M1 forming 4(2x + 3) = 44 or equivalent. M1 correct method to solve, e.g. 8x = 32 or 2x + 3 = 11. A1 x = 4.\nA correct answer with no working gets full marks unless the question asks for working.",
+  "totalMarks": 7,
+  "criteria": [
+    {
+      "label": "Q1",
+      "max": 2
+    },
+    {
+      "label": "Q2",
+      "max": 2
+    },
+    {
+      "label": "Q3",
+      "max": 3
+    }
+  ],
+  "pupilWork": "Q1 3x + 12 - 2x + 2 = x + 14\nQ2 5x - 2x = 8 + 7\n3x = 15\nx = 5\nQ3 4(2x + 3) = 44\n8x + 12 = 44\n8x = 32\nx = 4",
+  "reference": {
+    "marks": [
+      2,
+      2,
+      3
+    ],
+    "notes": "All correct with full working.",
+    "markedBy": "Claude (synthetic reference, not a teacher)"
+  },
+  "demoResult": {
+    "transcription": "",
+    "confidence": "high",
+    "flags": [],
+    "feedback": "Your working is clear and every step follows from the last. Next, try checking each answer by substituting it back into the original equation.",
+    "criteria": [
+      {
+        "point": "Q1",
+        "awarded": 2,
+        "max": 2,
+        "evidence": "3x + 12 - 2x + 2 = x + 14",
+        "comment": "M1 A1: both brackets expanded and simplified."
+      },
+      {
+        "point": "Q2",
+        "awarded": 2,
+        "max": 2,
+        "evidence": "3x = 15, x = 5",
+        "comment": "M1 A1: terms collected correctly."
+      },
+      {
+        "point": "Q3",
+        "awarded": 3,
+        "max": 3,
+        "evidence": "4(2x + 3) = 44 ... x = 4",
+        "comment": "M1 M1 A1: equation formed and solved."
+      }
+    ]
+  }
+}

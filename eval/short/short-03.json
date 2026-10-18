@@ -1,0 +1,87 @@
+{
+  "id": "short-03",
+  "provenance": "Synthetic example written by Claude for development. The reference marks are Claude's, not a teacher's. Replace with teacher-marked work before quoting agreement figures.",
+  "workType": "short",
+  "title": "Cells and photosynthesis",
+  "yearGroup": 9,
+  "subject": "Science",
+  "schemeText": "Q1 Name the part of a plant cell where photosynthesis happens. (1) Chloroplast.\nQ2 Write the word equation for photosynthesis. (2) carbon dioxide + water -> glucose + oxygen. 1 mark for correct reactants, 1 for correct products.\nQ3 Name two structures found in plant cells but not animal cells. (2) Any two of: cell wall, chloroplast, permanent vacuole.\nQ4 Why do plants need light for photosynthesis? (1) Light provides the energy for the reaction.\nQ5 Suggest why a plant kept in the dark loses mass. (2) No photosynthesis so no glucose made (1); glucose still used in respiration (1).",
+  "totalMarks": 8,
+  "criteria": [
+    {
+      "label": "Q1",
+      "max": 1
+    },
+    {
+      "label": "Q2",
+      "max": 2
+    },
+    {
+      "label": "Q3",
+      "max": 2
+    },
+    {
+      "label": "Q4",
+      "max": 1
+    },
+    {
+      "label": "Q5",
+      "max": 2
+    }
+  ],
+  "pupilWork": "Q1 cloroplast\nQ2 water and carbon dioxide make glucose\nQ3 chlorophyll and cell wall\nQ4 photosynthesis needs light energy\nQ5",
+  "reference": {
+    "marks": [
+      1,
+      1,
+      1,
+      1,
+      0
+    ],
+    "notes": "Spelling of chloroplast ignored. Q2 missing oxygen. Chlorophyll is not a structure. Q5 not answered.",
+    "markedBy": "Claude (synthetic reference, not a teacher)"
+  },
+  "demoResult": {
+    "transcription": "",
+    "confidence": "high",
+    "flags": [],
+    "feedback": "You remembered that light provides energy for photosynthesis. Next, check your word equation has both products, and have a go at every question, even if you are unsure.",
+    "criteria": [
+      {
+        "point": "Q1",
+        "awarded": 1,
+        "max": 1,
+        "evidence": "cloroplast",
+        "comment": "Correct; spelling not penalised."
+      },
+      {
+        "point": "Q2",
+        "awarded": 1,
+        "max": 2,
+        "evidence": "water and carbon dioxide make glucose",
+        "comment": "Reactants correct; oxygen missing from products."
+      },
+      {
+        "point": "Q3",
+        "awarded": 1,
+        "max": 2,
+        "evidence": "chlorophyll and cell wall",
+        "comment": "Cell wall correct; chlorophyll is a pigment, not a structure."
+      },
+      {
+        "point": "Q4",
+        "awarded": 1,
+        "max": 1,
+        "evidence": "needs light energy",
+        "comment": "Light as energy, correct."
+      },
+      {
+        "point": "Q5",
+        "awarded": 0,
+        "max": 2,
+        "evidence": "nothing written",
+        "comment": "No answer given."
+      }
+    ]
+  }
+}

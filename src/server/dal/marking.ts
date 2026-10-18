@@ -1,8 +1,9 @@
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { recordAudit } from "../audit";
 import { decryptText } from "../crypto";
 import type { Tx } from "../db/client";
-import { approval, appUser, authority, markLine, markResult, pupil, submission, type SubmissionStatus } from "../db/schema";
+import { approval, appUser, authority, markingRequest, markLine, markResult, pupil, submission, type SubmissionStatus } from "../db/schema";
+import { enqueueMarking } from "../marking/queue";
 import { env } from "../env";
 import { agreement, clampMark, finalTotal, sortQueue, type QueueItem } from "../marking/marks";
 import { requireRole, requireSchool, withTenant, type Ctx } from "../tenancy";
@@ -72,6 +73,8 @@ export type LineView = {
   finalAwarded: number | null;
   evidence: string | null;
   comment: string | null;
+  /** The AI's one-sentence reason, kept apart from the teacher's note. */
+  aiComment: string | null;
 };
 
 type RunView = {
@@ -111,6 +114,7 @@ async function currentRun(tx: Tx, ctx: TeacherCtx, s: SubmissionRow, a: Assignme
       finalAwarded: markLine.finalAwarded,
       evidence: markLine.evidence,
       comment: markLine.comment,
+      aiComment: markLine.aiComment,
     })
     .from(markLine)
     .where(and(eq(markLine.schoolId, ctx.schoolId), eq(markLine.markResultId, run.id)))
@@ -136,6 +140,7 @@ function blankLines(a: AssignmentRow): LineView[] {
     finalAwarded: null,
     evidence: null,
     comment: null,
+    aiComment: null,
   }));
 }
 
@@ -173,6 +178,8 @@ export type QueueRow = QueueItem & {
   displayName: string | null;
   submissionId: string | null;
   total: number | null;
+  /** The AI's suggested total, when every line has a suggestion. */
+  aiTotal: number | null;
 };
 
 export async function reviewQueue(ctx: Ctx, assignmentId: string): Promise<{ assignment: AssignmentRow; rows: QueueRow[] } | null> {
@@ -193,13 +200,17 @@ export async function reviewQueue(ctx: Ctx, assignmentId: string): Promise<{ ass
       flag_count: number | null;
       total: string | null;
       unmarked: number | null;
+      ai_total: string | null;
+      ai_unmarked: number | null;
     }>(sql`
       select p.id as pupil_id, p.code, p.display_name_enc as enc,
              s.id as submission_id, s.status, s.absent,
              (s.text is not null and length(s.text) > 0) as has_work,
              r.confidence, jsonb_array_length(r.flags) as flag_count,
              (select sum(final_awarded) from mark_line l where l.mark_result_id = r.id) as total,
-             (select count(*)::int from mark_line l where l.mark_result_id = r.id and l.final_awarded is null) as unmarked
+             (select count(*)::int from mark_line l where l.mark_result_id = r.id and l.final_awarded is null) as unmarked,
+             (select sum(ai_awarded) from mark_line l where l.mark_result_id = r.id) as ai_total,
+             (select count(*)::int from mark_line l where l.mark_result_id = r.id and l.ai_awarded is null) as ai_unmarked
       from pupil p
       left join submission s on s.pupil_id = p.id and s.assignment_id = ${a.id} and s.school_id = ${c.schoolId}
       left join lateral (
@@ -220,6 +231,7 @@ export async function reviewQueue(ctx: Ctx, assignmentId: string): Promise<{ ass
       confidence: r.confidence,
       flagCount: r.flag_count ?? 0,
       total: r.total !== null && r.unmarked === 0 ? Number(r.total) : null,
+      aiTotal: r.ai_total !== null && r.ai_unmarked === 0 ? Number(r.ai_total) : null,
     }));
     return { assignment: a, rows: sortQueue(items) };
   });
@@ -232,7 +244,14 @@ export async function reviewQueue(ctx: Ctx, assignmentId: string): Promise<{ ass
 export type ReviewView = {
   assignment: AssignmentRow;
   pupil: PupilRef;
-  submission: { id: string; text: string | null; absent: boolean; status: SubmissionStatus; feedback: string | null } | null;
+  submission: {
+    id: string;
+    text: string | null;
+    absent: boolean;
+    status: SubmissionStatus;
+    feedback: string | null;
+    failureReason: string | null;
+  } | null;
   run: RunView | null;
   lines: LineView[];
   approval: { approvedAt: Date; approvedBy: string; finalTotal: number } | null;
@@ -279,7 +298,9 @@ export async function getReview(ctx: Ctx, assignmentId: string, pupilId: string)
     return {
       assignment: a,
       pupil: p,
-      submission: s ? { id: s.id, text: s.text, absent: s.absent, status: s.status, feedback: s.feedback } : null,
+      submission: s
+        ? { id: s.id, text: s.text, absent: s.absent, status: s.status, feedback: s.feedback, failureReason: s.failureReason }
+        : null,
       run,
       lines: run?.lines ?? blankLines(a),
       approval: current,
@@ -495,6 +516,99 @@ export async function moveWork(ctx: Ctx, assignmentId: string, pupilId: string, 
     });
     return true;
   });
+}
+
+// ---------------------------------------------------------------------------
+// AI marking
+// ---------------------------------------------------------------------------
+
+const STALE_MARKING_MS = 15 * 60_000;
+
+function limits() {
+  return {
+    teacher: Number(process.env.MARKING_LIMIT_PER_TEACHER_PER_HOUR ?? 300),
+    school: Number(process.env.MARKING_LIMIT_PER_SCHOOL_PER_HOUR ?? 1500),
+  };
+}
+
+/**
+ * Send work for AI marking as background jobs. With no pupil given, marks the
+ * whole class: every pupil with typed work who is not absent, not approved and
+ * not already marked under the current scheme (failed and stuck jobs are
+ * retried). With a pupil, re-marks that one (a new run; history is kept).
+ * Rate limited per teacher and per school. Returns how many were queued.
+ */
+export async function startMarking(ctx: Ctx, assignmentId: string, pupilId?: string): Promise<{ queued: number }> {
+  const c = teacher(ctx);
+  const picked = await withTenant(c, async (tx) => {
+    const a = await loadAssignment(tx, c, assignmentId);
+    if (!a) return null;
+    if (pupilId !== undefined && !isUuid(pupilId)) return null;
+    const staleBefore = new Date(Date.now() - STALE_MARKING_MS);
+    const eligibleStatus = pupilId
+      ? inArray(submission.status, ["todo", "failed", "review", "marking"])
+      : or(inArray(submission.status, ["todo", "failed"]), and(eq(submission.status, "marking"), lt(submission.updatedAt, staleBefore)));
+    const rows = await tx
+      .select({ id: submission.id, status: submission.status, updatedAt: submission.updatedAt })
+      .from(submission)
+      .where(
+        and(
+          eq(submission.schoolId, c.schoolId),
+          eq(submission.assignmentId, a.id),
+          eq(submission.absent, false),
+          sql`coalesce(length(trim(${submission.text})), 0) > 0`,
+          eligibleStatus,
+          ...(pupilId ? [eq(submission.pupilId, pupilId)] : []),
+        ),
+      )
+      .for("update");
+    // A single pupil already being marked (and not stuck) is left alone.
+    const ids = rows.filter((r) => !(pupilId && r.status === "marking" && r.updatedAt >= staleBefore)).map((r) => r.id);
+    if (ids.length === 0) return { a, ids };
+
+    const lim = limits();
+    const [counts] = await tx.execute<{ mine: number; school: number }>(
+      sql`select * from app_marking_counts(${new Date(Date.now() - 3_600_000).toISOString()}::timestamptz)`,
+    );
+    const mine = counts?.mine ?? 0;
+    const school = counts?.school ?? 0;
+    if (mine + ids.length > lim.teacher) {
+      throw new MarkingError(
+        `You can send up to ${lim.teacher} scripts an hour for AI marking. You have ${Math.max(0, lim.teacher - mine)} left this hour, and this would send ${ids.length}. Try again later, or mark by hand.`,
+      );
+    }
+    if (school + ids.length > lim.school) {
+      throw new MarkingError(
+        `Your school has reached its hourly AI marking limit of ${lim.school} scripts (${Math.max(0, lim.school - school)} left). Try again later, or mark by hand.`,
+      );
+    }
+    await tx
+      .update(submission)
+      .set({ status: "marking", failureReason: null, updatedAt: new Date() })
+      .where(and(eq(submission.schoolId, c.schoolId), inArray(submission.id, ids)));
+    await tx.insert(markingRequest).values(ids.map((id) => ({ schoolId: c.schoolId, userId: c.userId, submissionId: id })));
+    await recordAudit(tx, c, {
+      action: "marking.requested",
+      targetType: "assignment",
+      targetId: a.id,
+      metadata: { scripts: ids.length, single: Boolean(pupilId) },
+    });
+    return { a, ids };
+  });
+  if (!picked) throw new MarkingError("Assignment not found.");
+  if (picked.ids.length === 0) return { queued: 0 };
+  try {
+    await enqueueMarking(picked.ids.map((submissionId) => ({ submissionId, requestedBy: c.userId })));
+  } catch (err) {
+    await withTenant(c, (tx) =>
+      tx
+        .update(submission)
+        .set({ status: "failed", failureReason: "Could not start marking. Try again in a moment.", updatedAt: new Date() })
+        .where(and(eq(submission.schoolId, c.schoolId), inArray(submission.id, picked.ids), eq(submission.status, "marking"))),
+    );
+    throw err;
+  }
+  return { queued: picked.ids.length };
 }
 
 // ---------------------------------------------------------------------------

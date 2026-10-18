@@ -25,6 +25,7 @@ export type AuditAction =
   | "submission.approved"
   | "submission.reopened"
   | "submission.viewed"
+  | "marking.requested"
   | "export.csv"
   | "export.feedback_sheets";
 

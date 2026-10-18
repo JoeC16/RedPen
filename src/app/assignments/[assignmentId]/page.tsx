@@ -6,6 +6,7 @@ import { buttonClass, Empty, linkClass, Notice, PageTitle, secondaryButtonClass,
 import { reviewQueue } from "@/server/dal/marking";
 import { workTypeLabel } from "@/server/marking/marks";
 import { requirePageUser } from "@/server/session";
+import { MarkingProgress, RunMarkingButton } from "./marking-controls";
 
 export const metadata: Metadata = { title: "Assignment" };
 export const dynamic = "force-dynamic";
@@ -27,6 +28,8 @@ export default async function AssignmentPage({
   const approved = rows.filter((r) => r.status === "approved").length;
   const absent = rows.filter((r) => r.absent).length;
   const next = rows.find((r) => r.status !== "approved" && !r.absent);
+  const marking = rows.filter((r) => r.status === "marking").length;
+  const toMark = rows.filter((r) => r.hasWork && !r.absent && (r.status === "todo" || r.status === "failed")).length;
 
   return (
     <AppShell user={user}>
@@ -34,7 +37,14 @@ export default async function AssignmentPage({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <PageTitle description={`${a.className} · ${workTypeLabel[a.workType]} · out of ${a.totalMarks}`}>{a.title}</PageTitle>
         {isTeacher ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-start gap-2">
+            {rows.some((r) => r.hasWork) ? (
+              <RunMarkingButton
+                assignmentId={a.id}
+                label={toMark > 0 ? `Run AI marking (${toMark})` : "Run AI marking"}
+                disabledReason={toMark > 0 ? undefined : marking > 0 ? "Marking in progress." : "All typed work has been marked."}
+              />
+            ) : null}
             {next ? <Link href={`/assignments/${a.id}/pupils/${next.pupilId}`} className={buttonClass}>Mark next pupil</Link> : null}
             <Link href={`/assignments/${a.id}/work`} className={secondaryButtonClass}>Add typed work</Link>
             <Link href={`/assignments/${a.id}/edit`} className={secondaryButtonClass}>Edit assignment</Link>
@@ -49,9 +59,11 @@ export default async function AssignmentPage({
       {sp.saved === "details" ? <Notice>Assignment saved.</Notice> : null}
       {sp.done ? <Notice>Everyone with work has been approved.</Notice> : null}
 
+      <MarkingProgress marking={marking} total={marking} />
+
       <p className="mb-4">
         {approved} of {rows.length} approved{absent ? `, ${absent} absent` : ""}.{" "}
-        {isTeacher ? "Nothing reaches a pupil until you approve it." : "Read-only view. Marking and approval are done by the class teachers; your viewing of pupil work is recorded in the audit log."}
+        {isTeacher ? "AI marks are suggestions; nothing reaches a pupil until you approve it. Flagged and low-confidence work is listed first." : "Read-only view. Marking and approval are done by the class teachers; your viewing of pupil work is recorded in the audit log."}
       </p>
 
       {rows.length === 0 ? (
@@ -59,7 +71,7 @@ export default async function AssignmentPage({
           This class has no pupils yet.{isTeacher ? <> <Link href={`/classes/${a.classId}/import`} className={linkClass}>Import pupils</Link>.</> : null}
         </Empty>
       ) : (
-        <Table caption="Review queue: work needing attention first" head={isTeacher ? ["Pupil", "Name", "Work", "Status", "Mark"] : ["Pupil", "Work", "Status", "Mark"]}>
+        <Table caption="Review queue: work needing attention first" head={isTeacher ? ["Pupil", "Name", "Work", "Status", "AI confidence", "Flags", "Mark"] : ["Pupil", "Work", "Status", "AI confidence", "Flags", "Mark"]}>
           {rows.map((r) => (
             <tr key={r.pupilId}>
               <Td className="font-mono">
@@ -68,7 +80,15 @@ export default async function AssignmentPage({
               {isTeacher ? <Td>{r.displayName ?? ""}</Td> : null}
               <Td>{r.absent ? "—" : r.hasWork ? "Added" : "None yet"}</Td>
               <Td><StatusBadge status={r.status} absent={r.absent} /></Td>
-              <Td>{r.total !== null ? `${r.total} / ${a.totalMarks}${r.status === "approved" ? "" : " (draft)"}` : ""}</Td>
+              <Td>{r.confidence ? r.confidence[0]!.toUpperCase() + r.confidence.slice(1) : ""}</Td>
+              <Td>{r.flagCount > 0 ? `${r.flagCount} to check` : ""}</Td>
+              <Td>
+                {r.total !== null
+                  ? `${r.total} / ${a.totalMarks}${r.status === "approved" ? "" : " (draft)"}`
+                  : r.aiTotal !== null && r.status === "review"
+                    ? `AI: ${r.aiTotal} / ${a.totalMarks} (draft)`
+                    : ""}
+              </Td>
             </tr>
           ))}
         </Table>

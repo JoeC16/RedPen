@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAssignment, updateAssignment } from "@/server/dal/assignments";
-import { approve, MarkingError, moveWork, reopen, reviewQueue, saveMarks, saveWork, saveWorkBulk, setAbsent } from "@/server/dal/marking";
+import { approve, MarkingError, moveWork, reopen, reviewQueue, saveMarks, saveWork, saveWorkBulk, setAbsent, startMarking } from "@/server/dal/marking";
 import { schemeSchema } from "@/server/marking/marks";
 import { requirePageUser } from "@/server/session";
 
@@ -77,7 +77,7 @@ export async function saveWorkBulkAction(assignmentId: string, _prev: FormState,
     redirect(`/assignments/${assignmentId}?added=${saved}`);
   } catch (err) {
     if (err instanceof MarkingError) return { error: err.message };
-    throw err;
+    throw err; // includes the redirect on success
   }
 }
 
@@ -144,4 +144,20 @@ export async function moveWorkAction(assignmentId: string, pupilId: string, _pre
   const failed = await guarded(() => moveWork(user, assignmentId, pupilId, target));
   if (failed) return failed;
   redirect(reviewPath(target, pupilId) + "?moved=1");
+}
+
+/** Send the class (or one pupil, when pupilId is given) for AI marking as background jobs. */
+export async function startMarkingAction(assignmentId: string, pupilId: string | null, _prev: FormState, _form: FormData): Promise<FormState> {
+  const user = await requirePageUser();
+  try {
+    const { queued } = await startMarking(user, assignmentId, pupilId ?? undefined);
+    revalidatePath(`/assignments/${assignmentId}`);
+    if (pupilId) revalidatePath(reviewPath(assignmentId, pupilId));
+    if (queued === 0) return { notice: pupilId ? "Nothing to mark: add typed work first." : "Nothing new to mark. Pupils need typed work, and absent or approved pupils are skipped." };
+    return { notice: `Marking ${queued} ${queued === 1 ? "script" : "scripts"}. You can leave this page; progress is saved.` };
+  } catch (err) {
+    if (err instanceof MarkingError) return { error: err.message };
+    console.error(JSON.stringify({ event: "start_marking_failed", name: (err as Error).name }));
+    return { error: "Could not start marking. Try again in a moment." };
+  }
 }

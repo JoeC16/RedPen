@@ -11,7 +11,9 @@ The build brief is [`CLAUDE.md`](CLAUDE.md). Progress is in [`docs/progress.md`]
 - Step 1 (foundation): sign-in, the three roles, tenancy with row-level security, and the audit log.
 - Step 2 (teacher core, no AI): classes, pupil import, assignments with mark schemes, typed work, the review queue and screen, manual marking, approval one pupil at a time, reopening, and CSV export.
 
-There is no AI marking yet (step 3).
+- Step 3 (marking engine): AI marking through Claude or a built-in demo provider, background jobs, redaction, prompt-injection checks, rate limits and the evaluation harness.
+
+Without `ANTHROPIC_API_KEY` the app runs in **demo mode**: AI marking returns fixed example results for the demo pupils, and a banner says so.
 
 ## Marking a class by hand
 
@@ -44,6 +46,32 @@ npm run dev                      # http://localhost:3000
 If you use your own Postgres instead of Docker, run `db/bootstrap.sql` once as a superuser.
 
 To run the production image locally: `docker compose --profile app up --build` (http://localhost:3000; it migrates on start, then run `npm run db:seed` from the host).
+
+## AI marking
+
+1. Add typed work, then **Run AI marking** on the assignment page. Each pupil is marked as a background job, and the page updates by itself.
+2. The review queue lists failed, flagged and low-confidence work first.
+3. Each pupil's review screen shows the AI's suggested mark per line, with a quote from the work as evidence and a one-sentence reason, plus the AI's confidence and anything to check. The teacher changes what they disagree with and approves.
+
+Settings (see `.env.example`):
+- `MARKING_MODE` and `ANTHROPIC_API_KEY` choose between live and demo marking.
+- `ANTHROPIC_MODEL` (required for live marking; never hard-coded), `MARKING_EFFORT` and `ANTHROPIC_FALLBACKS` control the model.
+- The `MARKING_LIMIT_*` variables set the hourly rate limits.
+- `MARKING_WORKER=off` turns off the in-process worker; then run `npm run worker` separately.
+
+Names never go to the model. Every pupil and staff name in the school is replaced with `[name]` before sending.
+
+## Evaluation harness
+
+`npm run eval` marks every case in `/eval` with the current prompt. It reports, by work type:
+- exact line agreement
+- agreement within one mark per script
+- how often high confidence matched the reference
+- time and cost per script
+
+`--provider=demo` forces demo mode. `--check` fails if agreement within one mark falls more than `EVAL_MAX_DROP` below `eval/baseline.json`. `--update-baseline` records a live run as the new baseline.
+
+The eight current cases are synthetic, with reference marks written by Claude, not teachers. Do not quote their figures as teacher agreement.
 
 ## Demo logins
 
