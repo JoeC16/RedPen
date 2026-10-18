@@ -16,7 +16,9 @@
     "db:reset": "tsx --env-file-if-exists=.env scripts/reset-dev.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "eval": "tsx --env-file-if-exists=.env scripts/eval.ts",
+    "worker": "tsx --env-file-if-exists=.env scripts/worker.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.131.0",
