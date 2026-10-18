@@ -47,6 +47,7 @@ export default async function AssignmentPage({
             ) : null}
             {next ? <Link href={`/assignments/${a.id}/pupils/${next.pupilId}`} className={buttonClass}>Mark next pupil</Link> : null}
             <Link href={`/assignments/${a.id}/work`} className={secondaryButtonClass}>Add typed work</Link>
+            <Link href={`/assignments/${a.id}/photos`} className={secondaryButtonClass}>Upload photos</Link>
             <Link href={`/assignments/${a.id}/edit`} className={secondaryButtonClass}>Edit assignment</Link>
             <a href={`/api/assignments/${a.id}/export`} className={secondaryButtonClass}>Export approved marks (CSV)</a>
             {approved > 0 ? <Link href={`/assignments/${a.id}/feedback`} className={secondaryButtonClass}>Feedback sheets (PDF)</Link> : null}
@@ -78,7 +79,7 @@ export default async function AssignmentPage({
                 <Link href={`/assignments/${a.id}/pupils/${r.pupilId}`} className={linkClass}>{r.pupilCode}</Link>
               </Td>
               {isTeacher ? <Td>{r.displayName ?? ""}</Td> : null}
-              <Td>{r.absent ? "—" : r.hasWork ? "Added" : "None yet"}</Td>
+              <Td>{r.absent ? "—" : r.photoCount > 0 ? `${r.photoCount} ${r.photoCount === 1 ? "photo" : "photos"}` : r.hasWork ? "Typed" : "None yet"}</Td>
               <Td><StatusBadge status={r.status} absent={r.absent} /></Td>
               <Td>{r.confidence ? r.confidence[0]!.toUpperCase() + r.confidence.slice(1) : ""}</Td>
               <Td>{r.flagCount > 0 ? `${r.flagCount} to check` : ""}</Td>

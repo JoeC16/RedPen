@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAssignment, updateAssignment } from "@/server/dal/assignments";
+import { deletePhoto } from "@/server/dal/photos";
 import { approve, MarkingError, moveWork, reopen, reviewQueue, saveMarks, saveWork, saveWorkBulk, setAbsent, startMarking } from "@/server/dal/marking";
 import { schemeSchema } from "@/server/marking/marks";
 import { requirePageUser } from "@/server/session";
@@ -160,4 +161,10 @@ export async function startMarkingAction(assignmentId: string, pupilId: string |
     console.error(JSON.stringify({ event: "start_marking_failed", name: (err as Error).name }));
     return { error: "Could not start marking. Try again in a moment." };
   }
+}
+
+export async function deletePhotoAction(fileId: string, assignmentId: string, pupilId: string): Promise<void> {
+  const user = await requirePageUser();
+  await guarded(() => deletePhoto(user, fileId));
+  revalidatePath(reviewPath(assignmentId, pupilId));
 }
