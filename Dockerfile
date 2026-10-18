@@ -22,6 +22,8 @@ COPY --from=build --chown=app:app /app/db/migrations ./db/migrations
 COPY --from=build --chown=app:app /app/scripts/migrate.ts /app/scripts/migrate.ts
 COPY --from=build --chown=app:app /app/scripts/lib/migrate.ts /app/scripts/lib/migrate.ts
 COPY --chown=app:app docker-entrypoint.sh ./
+# Only used with STORAGE_DRIVER=local; production uses an S3 bucket.
+RUN mkdir -p /app/.storage && chown app:app /app/.storage
 USER app
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
