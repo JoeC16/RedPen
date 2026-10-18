@@ -15,6 +15,7 @@ let t2: SessionUser; // Northgate colleague, teaches 8E3 only
 let rv: SessionUser; // Riverside teacher
 let ngAdmin: SessionUser;
 let authAdmin: SessionUser;
+let rvAdmin: SessionUser;
 const created: { classes: string[]; assignments: string[] } = { classes: [], assignments: [] };
 
 const scheme = (over: Partial<SchemeInput> = {}): SchemeInput => ({
@@ -39,6 +40,7 @@ beforeAll(async () => {
     ctxOf("northgateAdmin"),
     ctxOf("authorityAdmin"),
   ]);
+  rvAdmin = await ctxOf("riversideAdmin");
   pupils = await adminConn()<{ id: string; code: string }[]>`select id, code from pupil where class_id = ${IDS.classNorthgateMaths} order by code`;
 });
 
@@ -74,13 +76,21 @@ describe("assignments", () => {
     expect(await createAssignment(t1, "not-a-uuid", scheme())).toBeNull();
   });
 
-  it("is invisible to colleagues, other schools, and admins", async () => {
+  it("is invisible to colleagues, other schools and the authority; readable by the school's admin", async () => {
     const id = IDS.assignmentNorthgateSci;
     expect(await getAssignment(t2, id)).toBeNull();
     expect(await getAssignment(rv, id)).toBeNull();
+    expect(await getAssignment(rvAdmin, id)).toBeNull();
     expect(await listAssignments(t2, IDS.classNorthgateSci)).toBeNull();
-    await expect(getAssignment(ngAdmin, id)).rejects.toBeInstanceOf(ForbiddenError);
+    expect(await listAssignments(rvAdmin, IDS.classNorthgateSci)).toBeNull();
     await expect(getAssignment(authAdmin, id)).rejects.toBeInstanceOf(ForbiddenError);
+    expect((await getAssignment(ngAdmin, id))?.id).toBe(id);
+    expect((await listAssignments(ngAdmin, IDS.classNorthgateSci))?.map((a) => a.id)).toContain(id);
+  });
+
+  it("school admins cannot create or edit assignments", async () => {
+    await expect(createAssignment(ngAdmin, IDS.classNorthgateSci, scheme())).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(updateAssignment(ngAdmin, IDS.assignmentNorthgateSci, scheme())).rejects.toBeInstanceOf(ForbiddenError);
   });
 
   it("a scheme change bumps the version and is audited; a title change does not", async () => {
@@ -179,6 +189,28 @@ describe("marking a pupil by hand", () => {
     expect(await exportAssignment(t2, aid)).toBeNull();
   });
 
+  it("the school admin reads the queue and a pupil's work without names, and the viewing is audited", async () => {
+    const q = await reviewQueue(ngAdmin, aid);
+    expect(q?.rows.length).toBeGreaterThan(0);
+    expect(q?.rows.every((r) => r.displayName === null)).toBe(true);
+    const v = await getReview(ngAdmin, aid, pupils[0]!.id);
+    expect(v?.submission?.text).toBe("3x + 6\n12");
+    expect(v?.pupil.displayName).toBeNull();
+    const [ev] = await adminConn()`select actor_id from audit_event where action = 'submission.viewed' and target_id = ${v!.submission!.id}`;
+    expect(ev?.actor_id).toBe(IDS.northgateAdmin);
+    // A teacher opening their own pupil's work is not logged as a view.
+    await getReview(t1, aid, pupils[0]!.id);
+    const views = await adminConn()`select 1 from audit_event where action = 'submission.viewed' and target_id = ${v!.submission!.id}`;
+    expect(views).toHaveLength(1);
+  });
+
+  it("feedback sheets are a separately audited export", async () => {
+    const data = await exportAssignment(t1, aid, "feedback_sheets");
+    expect(data?.rows.find((r) => r.state === "approved")?.pupilId).toBe(pupils[0]!.id);
+    const [ev] = await adminConn()`select 1 from audit_event where action = 'export.feedback_sheets' and target_id = ${aid}`;
+    expect(ev).toBeTruthy();
+  });
+
   it("never writes pupil work into the audit log", async () => {
     const rows = await adminConn()`select metadata::text as m from audit_event where action = 'submission.work_saved'`;
     expect(rows.length).toBeGreaterThan(0);
@@ -229,9 +261,15 @@ describe("DAL tenancy: cross-school and cross-teacher", () => {
       expect(await setAbsent(who, aid, pupil!.id, true)).toBe(false);
       expect(await exportAssignment(who, aid)).toBeNull();
     }
-    for (const admin of [ngAdmin, authAdmin]) {
-      await expect(reviewQueue(admin, aid)).rejects.toBeInstanceOf(ForbiddenError);
+    expect(await reviewQueue(rvAdmin, aid)).toBeNull();
+    expect(await getReview(rvAdmin, aid, pupil!.id)).toBeNull();
+    await expect(reviewQueue(authAdmin, aid)).rejects.toBeInstanceOf(ForbiddenError);
+    for (const admin of [ngAdmin, rvAdmin, authAdmin]) {
       await expect(saveWork(admin, aid, pupil!.id, "x")).rejects.toBeInstanceOf(ForbiddenError);
+      await expect(saveMarks(admin, aid, pupil!.id, { lines: [], feedback: "" })).rejects.toBeInstanceOf(ForbiddenError);
+      await expect(approve(admin, aid, pupil!.id)).rejects.toBeInstanceOf(ForbiddenError);
+      await expect(reopen(admin, aid, pupil!.id, "because")).rejects.toBeInstanceOf(ForbiddenError);
+      await expect(exportAssignment(admin, aid)).rejects.toBeInstanceOf(ForbiddenError);
     }
     const [{ n }] = (await adminConn()`select count(*)::int as n from submission where assignment_id = ${aid}`) as unknown as [{ n: number }];
     expect(n).toBe(0);
@@ -246,8 +284,8 @@ describe("DAL tenancy: cross-school and cross-teacher", () => {
 });
 
 describe("database layer (row-level security)", () => {
-  it("hides pupil work and marks from school admins and colleagues", async () => {
-    for (const key of ["northgateAdmin", "northgateTeacher2", "authorityAdmin"] as const) {
+  it("hides pupil work and marks from colleagues, other schools' admins and the authority", async () => {
+    for (const key of ["northgateTeacher2", "riversideAdmin", "authorityAdmin"] as const) {
       const ctx = await rawCtxOf(key);
       await asApp(ctx, async (sql) => {
         for (const table of ["assignment", "submission", "mark_result", "mark_line", "approval"]) {
@@ -256,6 +294,21 @@ describe("database layer (row-level security)", () => {
         }
       });
     }
+  });
+
+  it("lets the school admin read, but not change, their school's work and marks", async () => {
+    const ctx = await rawCtxOf("northgateAdmin");
+    await asApp(ctx, async (sql) => {
+      expect((await sql`select * from mark_line where school_id = ${IDS.schoolNorthgate}`).length).toBeGreaterThan(0);
+      expect((await sql`select * from submission where school_id = ${IDS.schoolNorthgate}`).length).toBeGreaterThan(0);
+      expect(await sql`select * from submission where school_id <> ${IDS.schoolNorthgate}`).toHaveLength(0);
+      expect((await sql`update mark_line set comment = 'x' where school_id = ${IDS.schoolNorthgate}`).count).toBe(0);
+      expect((await sql`update submission set feedback = 'x' where school_id = ${IDS.schoolNorthgate}`).count).toBe(0);
+      expect((await sql`update assignment set title = 'x' where school_id = ${IDS.schoolNorthgate}`).count).toBe(0);
+      expect((await sql`update approval set final_feedback = 'x' where school_id = ${IDS.schoolNorthgate}`).count).toBe(0);
+    });
+    // Approvals can never be deleted by the app at all.
+    await expect(asApp(ctx, (sql) => sql`delete from approval where school_id = ${IDS.schoolNorthgate}`)).rejects.toThrow(/permission denied/);
   });
 
   it("refuses a submission pointing at another school's assignment", async () => {

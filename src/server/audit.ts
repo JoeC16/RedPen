@@ -24,7 +24,9 @@ export type AuditAction =
   | "submission.moved"
   | "submission.approved"
   | "submission.reopened"
-  | "export.csv";
+  | "submission.viewed"
+  | "export.csv"
+  | "export.feedback_sheets";
 
 export type AuditInput = {
   action: AuditAction;
