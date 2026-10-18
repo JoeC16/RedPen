@@ -46,7 +46,8 @@ async function loadPupil(tx: Tx, ctx: TeacherCtx, a: AssignmentRow, pupilId: str
 
 type SubmissionRow = typeof submission.$inferSelect;
 
-async function findSubmission(tx: Tx, ctx: TeacherCtx, assignmentId: string, pupilId: string, lock = false) {
+/** @internal data-access layer only */
+export async function findSubmission(tx: Tx, ctx: TeacherCtx, assignmentId: string, pupilId: string, lock = false) {
   const q = tx
     .select()
     .from(submission)
@@ -262,6 +263,9 @@ export type ReviewView = {
     status: SubmissionStatus;
     feedback: string | null;
     failureReason: string | null;
+    /** When the work was deleted (by retention or the teacher); the marks remain. */
+    contentDeletedAt: Date | null;
+    deleteAfter: Date | null;
   } | null;
   run: RunView | null;
   photos: PhotoView[];
@@ -311,7 +315,7 @@ export async function getReview(ctx: Ctx, assignmentId: string, pupilId: string)
       assignment: a,
       pupil: p,
       submission: s
-        ? { id: s.id, text: s.text, absent: s.absent, status: s.status, feedback: s.feedback, failureReason: s.failureReason }
+        ? { id: s.id, text: s.text, absent: s.absent, status: s.status, feedback: s.feedback, failureReason: s.failureReason, contentDeletedAt: s.contentDeletedAt, deleteAfter: s.deleteAfter }
         : null,
       run,
       photos: s ? await photosFor(tx, c, s.id) : [],
@@ -483,6 +487,7 @@ export async function reopen(ctx: Ctx, assignmentId: string, pupilId: string, re
     if (!found) return false;
     const s = await findSubmission(tx, c, found.a.id, found.p.id, true);
     if (!s || s.status !== "approved") throw new MarkingError("Only approved work can be reopened.");
+    if (s.contentDeletedAt) throw new MarkingError("The pupil's work has been deleted, so this mark can no longer be reopened.");
     const now = new Date();
     await tx
       .update(approval)

@@ -29,7 +29,13 @@ export type AuditAction =
   | "photo.uploaded"
   | "photo.deleted"
   | "export.csv"
-  | "export.feedback_sheets";
+  | "export.feedback_sheets"
+  | "submission.content_deleted"
+  | "submission.deleted"
+  | "settings.time_saved_changed";
+// Written by database functions rather than recordAudit (db/migrations/0006):
+// retention.deleted, settings.retention_changed, school.deletion_requested,
+// school.deletion_cancelled, school.data_deleted.
 
 export type AuditInput = {
   action: AuditAction;
