@@ -1,0 +1,36 @@
+# Local development. `docker compose up -d db` then `npm run db:migrate && npm run db:seed && npm run dev`.
+# `docker compose --profile app up --build` also runs the app in a container on :3000.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres_dev_only
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db/bootstrap.sql:/docker-entrypoint-initdb.d/00-bootstrap.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  app:
+    profiles: ["app"]
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://redpen_app:redpen_app_dev@db:5432/redpen
+      DATABASE_ADMIN_URL: postgres://redpen_owner:redpen_owner_dev@db:5432/redpen
+      AUTH_SECRET: dev-only-secret-change-me-dev-only-secret-change-me
+      AUTH_TRUST_HOST: "true"
+      PUPIL_NAME_KEY: ZGV2LW9ubHktcHVwaWwtbmFtZS1rZXktMzItYnl0ZXM=
+      RUN_MIGRATIONS_ON_START: "true"
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

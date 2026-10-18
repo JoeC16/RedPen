@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --color-accent: #b91c1c;
+  --color-accent-strong: #991b1b;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+/* Visible focus everywhere (WCAG 2.4.7 / 2.4.11). */
+:focus-visible {
+  outline: 3px solid #1d4ed8;
+  outline-offset: 2px;
+}
+@media (prefers-color-scheme: dark) {
+  :focus-visible {
+    outline-color: #93c5fd;
+  }
+}
