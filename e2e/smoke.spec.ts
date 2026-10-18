@@ -20,7 +20,9 @@ test("teacher signs in, sees their classes and pupil names, and signs out", asyn
   await expect(page.getByText("Demo data")).toBeVisible();
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "My classes" }).click();
   const table = page.getByRole("table", { name: "Classes" });
-  await expect(table.getByRole("row")).toHaveCount(3); // header + 2 classes
+  await expect(table.getByRole("link", { name: "9S1" })).toBeVisible();
+  await expect(table.getByRole("link", { name: "10M2" })).toBeVisible();
+  await expect(table.getByRole("link", { name: "8E3" })).toHaveCount(0); // a colleague's class
   await table.getByRole("link", { name: "9S1" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "9S1" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Name" })).toBeVisible();

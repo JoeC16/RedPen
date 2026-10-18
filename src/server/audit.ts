@@ -11,7 +11,20 @@ export type AuditAction =
   | "auth.login"
   | "auth.login_failed"
   | "auth.login_rate_limited"
-  | "auth.logout";
+  | "auth.logout"
+  | "class.created"
+  | "class.teacher_added"
+  | "class.teacher_removed"
+  | "pupils.imported"
+  | "assignment.created"
+  | "assignment.scheme_changed"
+  | "submission.work_saved"
+  | "submission.marked_absent"
+  | "submission.marked_present"
+  | "submission.moved"
+  | "submission.approved"
+  | "submission.reopened"
+  | "export.csv";
 
 export type AuditInput = {
   action: AuditAction;

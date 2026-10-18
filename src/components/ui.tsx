@@ -43,3 +43,45 @@ export function Empty({ children }: { children: ReactNode }) {
 
 export const linkClass =
   "text-accent underline underline-offset-2 hover:text-accent-strong dark:text-red-300 dark:hover:text-red-200";
+
+export const inputClass =
+  "mt-1 block w-full rounded border border-gray-400 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 disabled:bg-gray-100 disabled:text-gray-600 dark:disabled:bg-gray-800 dark:disabled:text-gray-300";
+
+export const buttonClass =
+  "inline-flex items-center rounded bg-accent px-4 py-2 font-medium text-white hover:bg-accent-strong disabled:opacity-60";
+
+export const secondaryButtonClass =
+  "inline-flex items-center rounded border border-gray-400 px-3 py-1.5 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-900";
+
+export function ErrorBox({ children }: { children: ReactNode }) {
+  return (
+    <div role="alert" className="mb-4 rounded border border-red-700 bg-red-50 p-3 text-sm text-red-900 dark:bg-red-950 dark:text-red-100">
+      {children}
+    </div>
+  );
+}
+
+export function Notice({ children }: { children: ReactNode }) {
+  return (
+    <p role="status" className="mb-4 rounded border border-green-700 bg-green-50 p-3 text-sm text-green-900 dark:bg-green-950 dark:text-green-100">
+      {children}
+    </p>
+  );
+}
+
+/** Status badge with text, never colour alone. */
+export function StatusBadge({ status, absent }: { status: string; absent?: boolean }) {
+  const label = absent
+    ? "Absent"
+    : ({ todo: "Not marked", marking: "Marking", review: "Draft marks", approved: "Approved", failed: "Failed" } as Record<string, string>)[status] ?? status;
+  const tone = absent
+    ? "border-gray-500 text-gray-700 dark:text-gray-300"
+    : status === "approved"
+      ? "border-green-700 text-green-800 dark:border-green-400 dark:text-green-200"
+      : status === "review"
+        ? "border-amber-600 text-amber-800 dark:border-amber-400 dark:text-amber-200"
+        : status === "failed"
+          ? "border-red-700 text-red-800 dark:border-red-400 dark:text-red-200"
+          : "border-gray-500 text-gray-700 dark:text-gray-300";
+  return <span className={`inline-block whitespace-nowrap rounded border px-2 py-0.5 text-xs font-medium ${tone}`}>{label}</span>;
+}

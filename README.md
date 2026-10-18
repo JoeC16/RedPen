@@ -8,7 +8,22 @@ The build brief is [`CLAUDE.md`](CLAUDE.md). Progress is in [`docs/progress.md`]
 
 ## Status
 
-Build step 1 (foundation) is done: sign-in, the three roles, tenancy with row-level security, and the audit log. There is no marking yet.
+- Step 1 (foundation): sign-in, the three roles, tenancy with row-level security, and the audit log.
+- Step 2 (teacher core, no AI): classes, pupil import, assignments with mark schemes, typed work, the review queue and screen, manual marking, approval one pupil at a time, reopening, and CSV export.
+
+There is no AI marking yet (step 3).
+
+## Marking a class by hand
+
+Sign in as `a.byrne@northgate.test`, then:
+
+1. **My classes → New class**, then **Import pupils**. Paste or upload a CSV with a `code` column and an optional `name` column.
+2. **New assignment**. Choose the type of work, paste the questions and mark scheme, set the total, and add one mark line per question or criterion. The lines must add up to the total. You can start from a saved scheme.
+3. **Add typed work** pastes answers for several pupils at once, or add work on each pupil's page. You can also mark from paper without typing anything.
+4. **Mark next pupil** opens the review queue in order: doubtful work first, approved work last. Enter a mark per line (half marks allowed) and feedback, then **Approve and go to next**. There is no "approve all".
+5. **Export approved marks (CSV)** downloads approved marks and feedback for the markbook. Unapproved pupils are listed with no marks.
+
+Approved marks are locked, in the app and in the database. **Reopen marks** needs a reason, which goes in the audit log. A pupil can be marked absent. Work handed in against the wrong assignment can be moved to another assignment in the same class.
 
 ## Run it locally
 
@@ -65,13 +80,15 @@ Hierarchy: Authority → School → Class → Pupil.
 1. **Data-access layer** (`src/server/dal/`). Every query takes the signed-in user's context and filters by `school_id` (and `authority_id`). Routes and pages never query the database directly. The context is re-read from the database on every request, so disabling a user or changing a role takes effect at once.
 2. **Row-level security** (`db/migrations/0001_foundation.sql`). The app connects as `redpen_app`, which owns no tables and cannot bypass RLS. `withTenant()` (`src/server/tenancy.ts`) sets the user, role, school and authority as transaction-local settings, and policies on every tenant table check them. No context means no rows.
 
-`tests/integration/routes.test.ts` calls every API route as users from one school aimed at another school's and another authority's ids, and fails if a new route is added without being covered. CI runs it twice: once normally and once with RLS bypassed, so each layer is proven on its own. `tests/integration/rls.test.ts` runs raw SQL with no `WHERE` clauses as the app role to prove the database layer.
+Server actions (all writes) go through the same data-access functions; `tests/integration/marking.test.ts` checks each of them from a colleague, another school and the admins.
+
+`tests/integration/routes.test.ts` calls every API route as users from one school aimed at another school's and another authority's ids, and fails if a new route is added without being covered. CI runs it, and the marking tenancy tests, twice: once normally and once with RLS bypassed, so each layer is proven on its own. `tests/integration/rls.test.ts` runs raw SQL with no `WHERE` clauses as the app role to prove the database layer.
 
 | Role | Can see |
 | --- | --- |
-| Authority admin | Schools and staff in their authority, the authority's audit log. No classes or pupils, enforced in the database. |
-| School admin | Every class in their school with pupil codes (not names), staff, the school's audit log. |
-| Teacher | Their own classes, with pupil names. Not colleagues' classes. No audit log. |
+| Authority admin | Schools and staff in their authority, the authority's audit log. No classes, pupils, work or marks, enforced in the database. |
+| School admin | Every class in their school with pupil codes (not names), staff, the school's audit log. Can create classes and share them with teachers. No pupil work or marks. |
+| Teacher | Their own classes, with pupil names, assignments, work and marks. Not colleagues' classes unless a school admin shares them. No audit log. |
 
 ## Layout
 

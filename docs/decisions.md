@@ -30,3 +30,19 @@ One line per significant decision and the reason.
 - No ESLint for now to keep dependencies few; strict TypeScript plus tests. Accessibility checks with axe come in step 7.
 - Next.js 16.3.8 rather than 16.4.x, which was days old. Vitest 4.1.11 because earlier versions have published vulnerabilities.
 - The lockfile was generated with npm 11 because npm 10.9 crashes resolving Vitest 4's optional peer dependencies; `npm ci` works with npm 10.
+
+## Step 2
+
+- Teachers define one mark line per question or criterion when they create an assignment. The lines must add up to the total. Manual marking uses these lines, and in step 3 they give the AI a fixed structure to fill.
+- Manual marking is stored as a `mark_result` run with `source = 'manual'` and empty `ai_awarded`. Manual and AI runs share one review screen and one approval path, and agreement figures count only AI runs.
+- Marks are `numeric(5,1)` with a `half_mark` domain that allows only whole and half marks. Line maxima are whole numbers.
+- School admins and authority admins cannot see pupil work, marks or feedback at row level. The brief gives school admins "manage teachers and classes" and a dashboard (aggregates). **This needs your confirmation.** It is easy to relax if school leaders should be able to read work.
+- Teachers can create classes and are assigned to them automatically (a security-definer function, so a teacher can never add themselves to a colleague's class). School admins share classes with teachers.
+- Pupil codes stay unique per school. An import that clashes with any code in the school is refused, without revealing which class holds it.
+- Editing a scheme increments `scheme_version`. A run belongs to an assignment and a scheme version, so drafts made under an older scheme or a different assignment stay as history and are not reused.
+- Moving work to another assignment is only possible within the same class, before approval, and when the pupil has no work there yet.
+- Approval sets `delete_after` = approval time + the authority's retention days (default 30). Reopening clears it.
+- Approval is one pupil at a time. "Approve and go to next" saves the marks first, so a teacher never approves something other than what is on screen.
+- Absent pupils cannot be marked or approved. They export as "absent".
+- CSV export includes pupil names, since the export is for the class teacher's own markbook. Formula-like cells are prefixed with a quote mark.
+- CI runs on pull requests and on pushes to `main`, not on every branch push, to avoid duplicate runs.

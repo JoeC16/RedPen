@@ -1,5 +1,41 @@
 # Progress
 
+## Step 2: Teacher core without AI (done)
+
+Built:
+
+- Migration `0002_teacher_core.sql`: `assignment`, `submission`, `mark_result`, `mark_line`, `approval`, all with `class_id` and `school_id` held consistent by composite foreign keys, and row-level security that lets only the class's teachers see them.
+- Classes: teachers create classes (and become their teacher); school admins create classes and share them with teachers or remove access.
+- Pupil import from pasted or uploaded CSV (`code` required, `name` optional and encrypted). Codes are unique across the school, checked without revealing other classes' pupils. All-or-nothing with row-numbered errors.
+- Assignments: work type, mark scheme text, total, and one mark line per question or criterion, which must add up to the total. Reuse an earlier scheme. Editing the scheme starts a new scheme version: approved marks keep theirs, drafts go back to be marked, earlier runs stay as history.
+- Work: paste typed answers in bulk or per pupil; mark absent; move work handed in for the wrong assignment to another assignment in the class.
+- Review queue sorted doubt first (failed, flagged or low confidence, medium, other drafts, not marked, no work, absent, approved). The flag and confidence ordering is already in place for step 3.
+- Review screen: work beside the mark lines, a mark per line (half marks, rounded and clamped), notes, feedback, live total, save draft, and approve one pupil at a time, which moves on to the next pupil. No "approve all".
+- Approval writes an `approval` row (total, feedback snapshot, agreement fields left empty for manual runs), locks the marks, and sets `delete_after` from the authority's retention period. A database trigger enforces the lock as well as the app.
+- Reopening needs a reason, keeps the earlier approval, and is audit logged. Earlier approvals show on the review screen.
+- CSV export of approved marks per line, total, feedback, approver and time. Unapproved pupils appear with no marks; absent pupils are marked absent. Cells that start with a formula character are neutralised.
+- Audit events for class creation, sharing, imports, assignment creation, scheme changes, work saved (length only, never content), absent, moves, approvals, reopens and exports.
+- CI now runs on pull requests and on pushes to `main` only, which stops every PR running twice.
+
+Acceptance: a teacher can mark a class by hand end to end. `e2e/marking.spec.ts` does exactly that in a browser: create a class, import three pupils, create an assignment (and see the "lines must add up" error), paste work, mark and approve two pupils (one with a half mark), mark one absent, export the CSV and check its contents, and reopen an approval with a reason.
+
+Tests: 180 Vitest tests, 55 of them new: unit tests for marks and CSV, 22 integration tests for the marking workflow and its tenancy rules at both the data-access and database layer, and the export route added to the cross-school route inventory. 16 Playwright tests, 3 of them new.
+
+Checked by hand in a browser (light and dark): class page, new assignment form, review queue, review screen in draft, approved and reopened states. Fixes from this and from the end-to-end test:
+
+- React resets uncontrolled form fields after a server action, so a validation error wiped the teacher's typed title and mark scheme. All forms now keep their input.
+- The "Draft saved" confirmation disappeared because the form remounted. Fixed.
+- The queue showed draft totals the same way as approved ones. Drafts now say "(draft)".
+- A blank "max marks" box was silently read as 0. It is now an error.
+- Empty note boxes no longer show on locked marks.
+
+Not built or not checked:
+
+- The per-pupil PDF feedback sheet from the teacher workflow. No build step names it. I have a question for you about this.
+- Deleting a submission early. This is with retention in step 5.
+- Screen reader testing (planned for step 7).
+
+
 ## Step 1: Foundation (done)
 
 Built:
