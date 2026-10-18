@@ -18,14 +18,19 @@ export function navFor(role: UserRole): NavItem[] {
     case "school_admin":
       return [
         { href: "/", label: "Home" },
+        { href: "/dashboard", label: "Dashboard" },
         { href: "/classes", label: "Classes" },
         { href: "/audit", label: "Audit log" },
+        { href: "/data", label: "School data" },
       ];
     case "authority_admin":
       return [
         { href: "/", label: "Home" },
+        { href: "/dashboard", label: "Dashboard" },
         { href: "/schools", label: "Schools" },
         { href: "/audit", label: "Audit log" },
+        { href: "/data", label: "School data" },
+        { href: "/settings", label: "Settings" },
       ];
   }
 }

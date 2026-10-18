@@ -10,9 +10,9 @@ The build brief is [`CLAUDE.md`](CLAUDE.md). Progress is in [`docs/progress.md`]
 
 - Step 1 (foundation): sign-in, the three roles, tenancy with row-level security, and the audit log.
 - Step 2 (teacher core, no AI): classes, pupil import, assignments with mark schemes, typed work, the review queue and screen, manual marking, approval one pupil at a time, reopening, and CSV export.
-
-- Step 4 (photos): photographed work, uploaded per pupil or in bulk by pupil code, with location data stripped and a names-cropped confirmation. The AI transcribes the photos and the transcription is shown next to them.
 - Step 3 (marking engine): AI marking through Claude or a built-in demo provider, background jobs, redaction, prompt-injection checks, rate limits and the evaluation harness.
+- Step 4 (photos): photographed work, uploaded per pupil or in bulk by pupil code, with location data stripped and a names-cropped confirmation. The AI transcribes the photos and the transcription is shown next to them.
+- Step 5 (oversight): school and authority dashboards from aggregates (small groups hidden), the AI agreement metric, estimated time saved, hourly retention that deletes pupil work and keeps the marks, early deletion by teachers, two-admin deletion of a school's data, and audit log details.
 
 Without `ANTHROPIC_API_KEY` the app runs in **demo mode**: AI marking returns fixed example results for the demo pupils, and a banner says so.
 
@@ -82,8 +82,8 @@ Every account uses the password `redpen-demo-2026`. All people, schools and auth
 
 | Role | Email | Sees |
 | --- | --- | --- |
-| Authority admin | `authority.admin@demo-authority.test` | Demo Education Authority: 3 schools, audit log, no pupil data |
-| School admin | `admin@northgate.test` | Northgate High School: all 3 classes (codes only), school audit log |
+| Authority admin | `authority.admin@demo-authority.test` | Demo Education Authority: 3 schools, dashboard, settings (retention, time saved), school data deletion, audit log, no pupil data |
+| School admin | `admin@northgate.test` | Northgate High School: all 3 classes (codes only), school dashboard, school data deletion, school audit log |
 | Teacher | `a.byrne@northgate.test` | Northgate 9S1 Science and 10M2 Maths, with pupil names |
 | Teacher | `c.doyle@northgate.test` | Northgate 8E3 English |
 | School admin | `admin@riverside.test` | Riverside College |

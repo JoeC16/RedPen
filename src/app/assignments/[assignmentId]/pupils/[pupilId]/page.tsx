@@ -11,7 +11,7 @@ import { getReview } from "@/server/dal/marking";
 import { workTypeLabel } from "@/server/marking/marks";
 import { requirePageUser } from "@/server/session";
 import { MarksForm } from "./marks-form";
-import { MoveForm, ReopenForm, WorkEditor } from "./side-forms";
+import { DeleteWorkForm, MoveForm, ReopenForm, WorkEditor } from "./side-forms";
 
 export const metadata: Metadata = { title: "Review" };
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export default async function ReviewPage({
   searchParams,
 }: {
   params: Promise<{ assignmentId: string; pupilId: string }>;
-  searchParams: Promise<{ approved?: string; moved?: string }>;
+  searchParams: Promise<{ approved?: string; moved?: string; deleted?: string }>;
 }) {
   const user = await requirePageUser();
   if (user.role === "authority_admin") notFound();
@@ -38,6 +38,7 @@ export default async function ReviewPage({
   const others = readOnly ? [] : (await listAssignments(user, a.classId))?.filter((x) => x.id !== a.id).map((x) => ({ id: x.id, title: x.title })) ?? [];
   const status = s?.status ?? "todo";
   const reopened = v.history.filter((h) => h.reopenedAt);
+  const deletedAt = s?.contentDeletedAt ?? null;
   // The AI read a different set of photos from the ones there now.
   const photosChanged =
     v.run?.source === "ai" &&
@@ -75,6 +76,13 @@ export default async function ReviewPage({
         </ErrorBox>
       ) : null}
       {sp.moved ? <Notice>Work moved to this assignment. Mark it against this scheme.</Notice> : null}
+      {sp.deleted === "all" ? <Notice>The work was deleted.</Notice> : null}
+      {deletedAt ? (
+        <p role="note" className="mb-4 rounded border border-gray-500 p-3">
+          {sp.deleted === "content" ? "Deleted. " : ""}
+          The pupil&apos;s work, photos and feedback were deleted on {fmt.format(deletedAt)}. The approved marks are kept for the markbook.
+        </p>
+      ) : null}
 
       {v.photos.length > 0 ? (
         <section aria-labelledby="photos-h" className="mb-8">
@@ -131,6 +139,8 @@ export default async function ReviewPage({
           <h2 id="work-h" className="mb-3 text-lg font-medium">Pupil work</h2>
           {absent ? (
             <p className="rounded border border-dashed border-gray-400 p-4">Marked absent for this assignment.</p>
+          ) : deletedAt ? (
+            <p className="rounded border border-dashed border-gray-400 p-4">Deleted on {fmt.format(deletedAt)}.</p>
           ) : s?.text ? (
             <div className="max-h-[32rem] overflow-y-auto whitespace-pre-wrap rounded border border-gray-200 p-4 dark:border-gray-800">{s.text}</div>
           ) : v.photos.length > 0 ? (
@@ -166,6 +176,14 @@ export default async function ReviewPage({
               ) : null}
               {s ? <MoveForm assignmentId={a.id} pupilId={p.id} targets={others} /> : null}
             </>
+          ) : null}
+          {!readOnly && s && !deletedAt && (s.text || v.photos.length > 0 || v.run) ? (
+            <DeleteWorkForm assignmentId={a.id} pupilId={p.id} approved={locked} />
+          ) : null}
+          {locked && !deletedAt && s?.deleteAfter ? (
+            <p className="mt-3 text-sm text-gray-700 dark:text-gray-300">
+              Under your authority&apos;s retention policy the work, photos and feedback will be deleted on {fmt.format(s.deleteAfter)}. The marks are kept.
+            </p>
           ) : null}
           <details className="mt-6">
             <summary className="cursor-pointer text-sm font-medium">Mark scheme</summary>
@@ -212,7 +230,7 @@ export default async function ReviewPage({
             locked={locked || readOnly}
             disabledReason={readOnly ? "Read-only view. Marks are entered and approved by the class teachers." : absent ? "Mark the pupil present to enter marks." : null}
           />
-          {locked && !readOnly ? (
+          {locked && !readOnly && !deletedAt ? (
             <div className="mt-6 space-y-4">
               <p>
                 <Link href={`/assignments/${a.id}/feedback?pupil=${p.id}`} className={linkClass}>Feedback sheet for {p.code} (PDF)</Link>

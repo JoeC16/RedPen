@@ -2,6 +2,9 @@ import { PgBoss } from "pg-boss";
 import { runMarkingJob, type MarkJob } from "./engine";
 
 export const MARKING_QUEUE = "marking";
+export const RETENTION_QUEUE = "retention";
+/** Hourly, off the hour. Deletes work past its retention date and queued photo files. */
+const RETENTION_CRON = process.env.RETENTION_CRON ?? "17 * * * *";
 const RETRY_LIMIT = 3;
 
 type Enqueue = (jobs: Omit<MarkJob, "jobId">[]) => Promise<void>;
@@ -18,6 +21,7 @@ function boss(): Promise<PgBoss> {
     b.on("error", (err: Error) => console.error(JSON.stringify({ event: "queue_error", name: err.name })));
     await b.start();
     await b.createQueue(MARKING_QUEUE, { retryLimit: RETRY_LIMIT, retryDelay: 5, retryBackoff: true, expireInSeconds: 600 });
+    await b.createQueue(RETENTION_QUEUE, { retryLimit: 2, retryDelay: 60, expireInSeconds: 1800 });
     return b;
   })();
   // A failed start (database not ready or not yet migrated) is not cached.
@@ -63,5 +67,14 @@ export async function startMarkingWorker(): Promise<void> {
     if (!job) return;
     await runMarkingJob({ ...job.data, jobId: job.id }, { finalAttempt: job.retryCount >= RETRY_LIMIT });
   });
-  console.info(JSON.stringify({ event: "marking_worker_started", concurrency }));
+  // Retention runs on the same worker. pg-boss runs each scheduled job once,
+  // however many workers are up.
+  await b.schedule(RETENTION_QUEUE, RETENTION_CRON, {}, { tz: "Europe/London" });
+  await b.work(RETENTION_QUEUE, { batchSize: 1 }, async () => {
+    const { runRetention } = await import("../dal/retention");
+    // Batches, so one run never holds locks for long; the next run picks up any rest.
+    const r = await runRetention();
+    console.info(JSON.stringify({ event: "retention_run", ...r }));
+  });
+  console.info(JSON.stringify({ event: "marking_worker_started", concurrency, retentionCron: RETENTION_CRON }));
 }

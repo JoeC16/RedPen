@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAssignment, updateAssignment } from "@/server/dal/assignments";
 import { deletePhoto } from "@/server/dal/photos";
+import { deleteWork } from "@/server/dal/retention";
 import { approve, MarkingError, moveWork, reopen, reviewQueue, saveMarks, saveWork, saveWorkBulk, setAbsent, startMarking } from "@/server/dal/marking";
 import { schemeSchema } from "@/server/marking/marks";
 import { requirePageUser } from "@/server/session";
@@ -167,4 +168,20 @@ export async function deletePhotoAction(fileId: string, assignmentId: string, pu
   const user = await requirePageUser();
   await guarded(() => deletePhoto(user, fileId));
   revalidatePath(reviewPath(assignmentId, pupilId));
+}
+
+/** Delete one pupil's work now, ahead of the retention date. Needs a ticked confirmation. */
+export async function deleteWorkAction(assignmentId: string, pupilId: string, _prev: FormState, form: FormData): Promise<FormState> {
+  const user = await requirePageUser();
+  if (form.get("confirm") !== "yes") return { error: "Tick the box to confirm you want to delete this work." };
+  let outcome: Awaited<ReturnType<typeof deleteWork>>;
+  try {
+    outcome = await deleteWork(user, assignmentId, pupilId);
+  } catch (err) {
+    if (err instanceof MarkingError) return { error: err.message };
+    throw err;
+  }
+  if (!outcome) return { error: "Not found." };
+  revalidatePath(`/assignments/${assignmentId}`);
+  redirect(`${reviewPath(assignmentId, pupilId)}?deleted=${outcome}`);
 }

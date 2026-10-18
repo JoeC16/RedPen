@@ -12,6 +12,16 @@ export const dynamic = "force-dynamic";
 const input =
   "mt-1 block w-full rounded border border-gray-400 bg-white px-2 py-1.5 text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100";
 
+/** Short, readable metadata: counts, reasons and settings; ids are left out. */
+function details(m: Record<string, unknown>): string {
+  return Object.entries(m)
+    .filter(([k, v]) => v !== null && v !== undefined && !/(^id$|Id$|^requestedBy$)/.test(k))
+    .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : String(v)}`)
+    .join(", ");
+}
+
+const ACTION_PREFIXES = ["auth.", "class.", "pupils.", "assignment.", "submission.", "marking.", "photo.", "export.", "retention.", "settings.", "school."];
+
 const fmt = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "medium", timeZone: "Europe/London" });
 
 export default async function AuditPage({ searchParams }: { searchParams: Promise<Record<string, string | string[]>> }) {
@@ -47,7 +57,10 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
           <label htmlFor="action" className="block text-sm font-medium">
             Action starts with
           </label>
-          <input id="action" name="action" placeholder="auth." defaultValue={filter.action ?? ""} className={input} />
+          <input id="action" name="action" placeholder="auth." list="action-prefixes" defaultValue={filter.action ?? ""} className={input} />
+          <datalist id="action-prefixes">
+            {ACTION_PREFIXES.map((a) => <option key={a} value={a} />)}
+          </datalist>
         </div>
         <div>
           <label htmlFor="from" className="block text-sm font-medium">
@@ -79,14 +92,21 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       {events.length === 0 ? (
         <Empty>No events match.</Empty>
       ) : (
-        <Table caption="Audit events, newest first" head={["When (UK time)", "Action", "Actor", "School", "Target"]}>
+        <Table caption="Audit events, newest first" head={["When (UK time)", "Action", "Actor", "School", "Target", "Details"]}>
           {events.map((e) => (
             <tr key={e.id}>
               <Td className="whitespace-nowrap">{fmt.format(e.createdAt)}</Td>
               <Td className="font-mono">{e.action}</Td>
-              <Td>{e.actorName ? `${e.actorName} (${e.actorEmail})` : <span className="text-gray-600 dark:text-gray-300">Unknown</span>}</Td>
+              <Td>
+                {e.actorName ? (
+                  `${e.actorName} (${e.actorEmail})`
+                ) : (
+                  <span className="text-gray-600 dark:text-gray-300">{e.action === "retention.deleted" ? "Automatic (retention job)" : "Unknown"}</span>
+                )}
+              </Td>
               <Td>{e.schoolName ?? "Authority"}</Td>
               <Td>{e.targetName ?? (e.targetType ? <span className="font-mono text-xs">{`${e.targetType}:${e.targetId}`}</span> : "")}</Td>
+              <Td className="max-w-xs break-words text-xs">{details(e.metadata)}</Td>
             </tr>
           ))}
         </Table>

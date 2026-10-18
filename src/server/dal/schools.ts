@@ -1,5 +1,5 @@
 import { and, asc, eq, sql } from "drizzle-orm";
-import { appUser, authority, school } from "../db/schema";
+import { authority, school } from "../db/schema";
 import { withTenant, type Ctx } from "../tenancy";
 import { isUuid } from "./ids";
 
@@ -8,7 +8,8 @@ export type SchoolSummary = { id: string; name: string; staffCount: number };
 const columns = {
   id: school.id,
   name: school.name,
-  staffCount: sql<number>`(select count(*)::int from ${appUser} where ${appUser.schoolId} = ${school.id} and ${appUser.disabledAt} is null)`,
+  // Written out in full: Drizzle leaves columns unqualified inside a select's sql, which would bind to the subquery.
+  staffCount: sql<number>`(select count(*)::int from app_user u where u.school_id = "school"."id" and u.disabled_at is null)`,
 };
 
 /** Authority admins see every school in their authority; everyone else sees only their own. */

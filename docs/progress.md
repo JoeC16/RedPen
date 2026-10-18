@@ -1,5 +1,35 @@
 # Progress
 
+## Step 5: Oversight (done)
+
+Built:
+
+- Migration `0006_oversight.sql`.
+- **Dashboards** for school admins (their school) and authority admins (every school, or one), at `/dashboard`, over the last 6, 13 or 52 weeks:
+  - scripts added, pupils and assignments marked, share approved, median time from upload to approval, flagged rate;
+  - **agreement with the AI** by work type: kept unchanged, and approved total within 1 mark of the AI's (the same measure as the evaluation harness);
+  - **estimated teacher time saved**, with the minutes per script shown and editable by the authority admin;
+  - adoption: active teachers per school per week, and approvals per week;
+  - estimated AI cost per script, shown only when model prices are configured.
+- The figures come from security-definer functions that return only aggregates, computed from real rows. Teachers cannot call them, and an admin only gets their own school or authority.
+- **Small groups are hidden**: any figure built from 1 to 4 pupils or scripts reads "fewer than 5". Where a breakdown is shown next to its total and only one cell is hidden, the next smallest is hidden too, so it cannot be worked out by subtraction. Teacher counts are shown per school, never per teacher.
+- **Retention**: an hourly job (pg-boss schedule) deletes the content of approved work past the authority's retention date: typed work, photos (rows and stored files), the AI's transcription and feedback draft, evidence quotes, comments, flag wording, and feedback. Marks, dates and agreement figures are kept, linked only to the pupil code. Each run writes one audit event per school. Deleted work can't be reopened, and the database refuses to put content back.
+- Photo files are deleted through a queue table filled in the same transaction as the rows, so a storage outage delays deletion but never loses track of a file.
+- **Settings** (`/settings`, authority admin): retention period (rescheduling approved work already held) and minutes per script. Both audit logged.
+- **Teacher early deletion** on the review screen, behind a confirmation box. Approved work is deleted as retention would; unapproved work is removed entirely with its draft marks.
+- **Delete everything for a school** (`/data`): one admin requests, a different admin confirms within 24 hours, each typing the school's name. Either can be that school's admin or an authority admin. It deletes every class, pupil, assignment, piece of work, photo, mark and approval; it keeps the school, staff accounts and the audit log. Request, cancel and deletion are audit logged with counts.
+- **Audit log**: a details column (counts, reasons, settings; no ids), action suggestions for searching, and "Automatic (retention job)" as the actor for retention.
+
+Tests: 309 Vitest tests and 21 Playwright tests. New ones cover the dashboard figures against known rows, suppression, scope (school admins only see their own school, whatever they ask for; other authorities get nothing; teachers are refused by the database), retention (what is deleted, what is kept, files removed, audit event, no reopening or restoring), rescheduling, early deletion, and the two-admin flow (same admin refused, other school refused, expiry, cancel, only that school's data deleted).
+
+Checked by hand in a browser (light and dark): the authority dashboard with sample rows, school dashboard, settings, school data page, the review screen after deleting work, and the audit log. Fixes from this:
+- Staff counts were always 0, here and on the step 1 Schools page. Drizzle left the column names unqualified inside the subquery, so it compared the user table with itself. Both are now written out in full, and a test checks the counts.
+- Added a note explaining why a second figure is sometimes hidden.
+
+Not checked:
+- The schedule firing on the clock. I checked the server registers it (`17 * * * *`, Europe/London) and that a job sent to the queue runs the retention handler; the job itself is tested directly.
+- Dashboards with realistic volumes. The seeded data has only a few scripts, so most figures read "fewer than 5". Step 7 seeds six weeks of history.
+
 ## Step 4: Photos and maths (done, in demo mode; live AI transcription not yet run)
 
 Built:
