@@ -116,8 +116,6 @@ async function expectNotFound(page: Page, path: string) {
 }
 
 test("marking pages are closed to colleagues and other schools; writing pages to the school admin", async ({ page }) => {
-  // Four sign-ins and twenty page loads: allow for a busy CI machine.
-  test.setTimeout(90_000);
   const writePaths = [
     `/assignments/${IDS.assignmentNorthgateSci}/work`,
     `/assignments/${IDS.assignmentNorthgateSci}/edit`,
@@ -132,6 +130,9 @@ test("marking pages are closed to colleagues and other schools; writing pages to
     expect([403, 404]).toContain(res.status());
     await page.goto("/");
     await page.getByRole("button", { name: "Sign out" }).click();
+    // Wait for sign-out to finish; otherwise the next sign-in can find the old
+    // session still active, be redirected from /login, and wait for ever.
+    await expect(page).toHaveURL(/\/login$/);
   }
 });
 
