@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { buttonClass, ErrorBox, inputClass, Notice, secondaryButtonClass } from "@/components/ui";
-import { moveWorkAction, reopenAction, saveWorkAction, type FormState } from "@/app/assignments/actions";
+import { deleteWorkAction, moveWorkAction, reopenAction, saveWorkAction, type FormState } from "@/app/assignments/actions";
 
 export function WorkEditor({ assignmentId, pupilId, text, open }: { assignmentId: string; pupilId: string; text: string; open: boolean }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveWorkAction.bind(null, assignmentId, pupilId), {});
@@ -50,6 +50,31 @@ export function MoveForm({ assignmentId, pupilId, targets }: { assignmentId: str
           </select>
         </div>
         <button type="submit" disabled={pending} className={buttonClass}>Move work</button>
+      </form>
+    </details>
+  );
+}
+
+export function DeleteWorkForm({ assignmentId, pupilId, approved }: { assignmentId: string; pupilId: string; approved: boolean }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(deleteWorkAction.bind(null, assignmentId, pupilId), {});
+  const [confirmed, setConfirmed] = useState(false);
+  return (
+    <details className="mt-4">
+      <summary className="cursor-pointer text-sm font-medium">Delete this pupil&apos;s work now</summary>
+      <form action={action} className="mt-2 space-y-2 rounded border border-red-700 p-4 text-sm">
+        {state.error ? <ErrorBox>{state.error}</ErrorBox> : null}
+        <p>
+          {approved
+            ? "Deletes the typed work, photos, transcription, evidence quotes, comments and feedback now instead of on the retention date. The approved marks are kept for the markbook and for agreement figures. This cannot be undone, and the marks can no longer be reopened."
+            : "Deletes the typed work, photos and any draft marks and feedback for this pupil. This cannot be undone."}
+        </p>
+        <label className="flex items-start gap-2">
+          <input type="checkbox" name="confirm" value="yes" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-1" />
+          <span>I understand this permanently deletes the work.</span>
+        </label>
+        <button type="submit" disabled={pending} className="inline-flex items-center rounded bg-red-800 px-3 py-1.5 font-medium text-white hover:bg-red-900 disabled:opacity-60">
+          Delete work
+        </button>
       </form>
     </details>
   );
