@@ -19,3 +19,14 @@
     outline-color: #93c5fd;
   }
 }
+
+/* Feedback sheets and any other printout: always black on white, whatever the screen theme. */
+@media print {
+  :root {
+    color-scheme: light;
+  }
+  * {
+    color: #000 !important;
+    background: transparent !important;
+  }
+}
