@@ -71,6 +71,23 @@ One line per significant decision and the reason.
 - CI runs the eval harness on every PR. It calls the live AI only when `src/server/marking/` or `eval/` changes, to keep CI cost down.
 - Playwright resets the e2e database in the web server command, before the app starts, so the queue worker never connects to a half-reset schema. It never reuses an already-running server.
 
+## Step 5 (2026-10-18)
+
+- Founder: retention deletes pupil work, photos, transcriptions, evidence, comments and feedback, and keeps marks, timestamps and AI-versus-teacher numbers linked only to the pupil code.
+- Founder: "delete everything for this school" needs two different people; one requests, another confirms within 24 hours; either may be that school's admin or an authority admin.
+- Founder: suppress figures built from fewer than 5 pupils or scripts; show active-teacher counts per school, never per teacher.
+- Retention applies to approved work only. Unapproved work has no retention date yet; teachers can delete it, and a rule for stale drafts is in `docs/later.md`.
+- Flag text is replaced with "removed" rather than deleted, because it can quote pupil work but the flagged rate needs the count.
+- Deleted work can't be reopened. There is nothing left to re-mark from, and the database enforces it.
+- Changing the retention period reschedules approved work still held, so the policy means one thing everywhere.
+- "Agreement" is the approved total within 1 mark of the AI's total: the harness measure, so the dashboard and the evaluation numbers mean the same. "Kept unchanged" is shown alongside.
+- Time saved counts only approved scripts the AI marked, times the authority's minutes per work type. It does not subtract checking time, and the page says so.
+- Cost per script is shown only when model prices are set, and labelled as an estimate.
+- School deletion keeps staff accounts, the school and the audit log. Removing staff is a separate decision (it would break the audit trail's actors).
+- The admin types the school's name to request and to confirm, as well as needing two people.
+- Secondary suppression: when exactly one cell in a breakdown is hidden and the total is shown, the next smallest is hidden too.
+- Dashboards read through security-definer functions that return aggregates only, rather than giving admins row access.
+
 ## Step 4 (2026-10-18)
 
 - Photos are stored in a private bucket and only ever served by the app, through links signed for one user that expire in 5 minutes. The route also checks the session and access, so a leaked link is useless to anyone else and quickly expires. No presigned bucket URLs are used.
