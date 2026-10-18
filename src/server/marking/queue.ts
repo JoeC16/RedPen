@@ -20,6 +20,10 @@ function boss(): Promise<PgBoss> {
     await b.createQueue(MARKING_QUEUE, { retryLimit: RETRY_LIMIT, retryDelay: 5, retryBackoff: true, expireInSeconds: 600 });
     return b;
   })();
+  // A failed start (database not ready or not yet migrated) is not cached.
+  g.redpenBoss.catch(() => {
+    g.redpenBoss = undefined;
+  });
   return g.redpenBoss;
 }
 
@@ -43,7 +47,17 @@ export async function enqueueMarking(jobs: Omit<MarkJob, "jobId">[]): Promise<vo
 export async function startMarkingWorker(): Promise<void> {
   if (g.redpenWorker) return;
   g.redpenWorker = true;
-  const b = await boss();
+  let b: PgBoss | undefined;
+  for (let attempt = 1; !b; attempt++) {
+    try {
+      b = await boss();
+    } catch (err) {
+      // Typically the database is still starting or migrations have not run yet.
+      const wait = Math.min(30, 2 * attempt);
+      console.error(JSON.stringify({ event: "marking_worker_waiting", attempt, retryInSeconds: wait, message: (err as Error).message }));
+      await new Promise((r) => setTimeout(r, wait * 1000));
+    }
+  }
   const concurrency = Number(process.env.MARKING_CONCURRENCY ?? 4);
   await b.work<Omit<MarkJob, "jobId">>(MARKING_QUEUE, { batchSize: 1, localConcurrency: concurrency }, async ([job]) => {
     if (!job) return;

@@ -19,6 +19,8 @@ export type ProviderResponse = {
   tokensOut: number;
   cacheReadTokens: number;
   latencyMs: number;
+  /** True when the provider proposed no marks at all (demo placeholder). */
+  placeholder?: boolean;
 };
 
 /** A provider-level failure the teacher can act on (shown as the failure reason). */

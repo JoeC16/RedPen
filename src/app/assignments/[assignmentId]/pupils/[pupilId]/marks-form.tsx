@@ -12,6 +12,7 @@ export type LineProps = {
   finalAwarded: number | null;
   evidence: string | null;
   comment: string | null;
+  aiComment: string | null;
 };
 
 export function MarksForm({
@@ -23,6 +24,7 @@ export function MarksForm({
   totalMarks,
   locked,
   disabledReason,
+  feedbackFromAi = false,
 }: {
   assignmentId: string;
   pupilId: string;
@@ -32,6 +34,7 @@ export function MarksForm({
   totalMarks: number;
   locked: boolean;
   disabledReason: string | null;
+  feedbackFromAi?: boolean;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveMarksAction.bind(null, assignmentId, pupilId), {});
   const [marks, setMarks] = useState<string[]>(lines.map((l) => (l.finalAwarded ?? l.aiAwarded)?.toString() ?? ""));
@@ -70,12 +73,20 @@ export function MarksForm({
                 />
               </div>
               {l.aiAwarded !== null ? (
-                <p className="text-sm text-gray-700 dark:text-gray-300">Suggested: {l.aiAwarded}</p>
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  AI suggested {l.aiAwarded} of {l.max}
+                  {marks[i] !== "" && Number(marks[i]) !== l.aiAwarded ? <span className="font-medium"> · you changed this</span> : null}
+                </p>
               ) : null}
             </div>
             {l.evidence ? (
               <p className="mt-2 text-sm">
                 <span className="font-medium">Evidence:</span> <q>{l.evidence}</q>
+              </p>
+            ) : null}
+            {l.aiComment ? (
+              <p className="mt-1 text-sm">
+                <span className="font-medium">AI reason:</span> {l.aiComment}
               </p>
             ) : null}
             <div className="mt-2" hidden={locked && !comments[i]}>
@@ -89,7 +100,9 @@ export function MarksForm({
           {!complete ? <span className="ml-2 text-sm font-normal">(some lines have no mark yet)</span> : null}
         </p>
         <div>
-          <label htmlFor="feedback" className="block text-sm font-medium">Feedback to the pupil</label>
+          <label htmlFor="feedback" className="block text-sm font-medium">
+            Feedback to the pupil{feedbackFromAi ? " (AI draft: edit before approving)" : ""}
+          </label>
           <textarea id="feedback" name="feedback" rows={4} maxLength={5000} value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} className={inputClass} aria-describedby="feedback-help" />
           <p id="feedback-help" className="mt-1 text-sm text-gray-600 dark:text-gray-300">One thing done well and one concrete next step works best.</p>
         </div>

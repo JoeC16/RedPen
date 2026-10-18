@@ -178,6 +178,8 @@ export type QueueRow = QueueItem & {
   displayName: string | null;
   submissionId: string | null;
   total: number | null;
+  /** The AI's suggested total, when every line has a suggestion. */
+  aiTotal: number | null;
 };
 
 export async function reviewQueue(ctx: Ctx, assignmentId: string): Promise<{ assignment: AssignmentRow; rows: QueueRow[] } | null> {
@@ -198,13 +200,17 @@ export async function reviewQueue(ctx: Ctx, assignmentId: string): Promise<{ ass
       flag_count: number | null;
       total: string | null;
       unmarked: number | null;
+      ai_total: string | null;
+      ai_unmarked: number | null;
     }>(sql`
       select p.id as pupil_id, p.code, p.display_name_enc as enc,
              s.id as submission_id, s.status, s.absent,
              (s.text is not null and length(s.text) > 0) as has_work,
              r.confidence, jsonb_array_length(r.flags) as flag_count,
              (select sum(final_awarded) from mark_line l where l.mark_result_id = r.id) as total,
-             (select count(*)::int from mark_line l where l.mark_result_id = r.id and l.final_awarded is null) as unmarked
+             (select count(*)::int from mark_line l where l.mark_result_id = r.id and l.final_awarded is null) as unmarked,
+             (select sum(ai_awarded) from mark_line l where l.mark_result_id = r.id) as ai_total,
+             (select count(*)::int from mark_line l where l.mark_result_id = r.id and l.ai_awarded is null) as ai_unmarked
       from pupil p
       left join submission s on s.pupil_id = p.id and s.assignment_id = ${a.id} and s.school_id = ${c.schoolId}
       left join lateral (
@@ -225,6 +231,7 @@ export async function reviewQueue(ctx: Ctx, assignmentId: string): Promise<{ ass
       confidence: r.confidence,
       flagCount: r.flag_count ?? 0,
       total: r.total !== null && r.unmarked === 0 ? Number(r.total) : null,
+      aiTotal: r.ai_total !== null && r.ai_unmarked === 0 ? Number(r.ai_total) : null,
     }));
     return { assignment: a, rows: sortQueue(items) };
   });

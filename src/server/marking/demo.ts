@@ -47,6 +47,7 @@ export class DemoProvider implements MarkingProvider {
       tokensOut: 0,
       cacheReadTokens: 0,
       latencyMs: Date.now() - started,
+      placeholder: !fixed,
     };
   }
 }

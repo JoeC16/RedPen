@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
-import { linkClass, Notice, secondaryButtonClass, StatusBadge } from "@/components/ui";
+import { ErrorBox, linkClass, Notice, secondaryButtonClass, StatusBadge } from "@/components/ui";
+import { MarkingProgress, RunMarkingButton } from "../../marking-controls";
 import { setAbsentAction } from "@/app/assignments/actions";
 import { listAssignments } from "@/server/dal/assignments";
 import { getReview } from "@/server/dal/marking";
@@ -61,6 +62,13 @@ export default async function ReviewPage({
       </div>
 
       {sp.approved ? <Notice>Approved. This is the next pupil to mark.</Notice> : null}
+      {status === "marking" ? <MarkingProgress marking={1} total={1} /> : null}
+      {status === "failed" && s?.failureReason ? (
+        <ErrorBox>
+          <p>AI marking failed: {s.failureReason}</p>
+          {!readOnly ? <div className="mt-2"><RunMarkingButton assignmentId={a.id} pupilId={p.id} label="Try AI marking again" secondary /></div> : null}
+        </ErrorBox>
+      ) : null}
       {sp.moved ? <Notice>Work moved to this assignment. Mark it against this scheme.</Notice> : null}
 
       <div className="grid gap-8 lg:grid-cols-2">
@@ -80,6 +88,17 @@ export default async function ReviewPage({
                 <input type="hidden" name="absent" value={absent ? "0" : "1"} />
                 <button type="submit" className={secondaryButtonClass}>{absent ? "Mark present" : "Mark absent"}</button>
               </form>
+              {s?.text && !absent && status !== "marking" && status !== "failed" ? (
+                <div className="mt-4">
+                  <RunMarkingButton
+                    assignmentId={a.id}
+                    pupilId={p.id}
+                    secondary
+                    label={v.run?.source === "ai" ? "Mark again with AI" : "Mark with AI"}
+                  />
+                  {v.run ? <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">A new AI suggestion replaces the current draft. Earlier marks are kept in the history.</p> : null}
+                </div>
+              ) : null}
               {s ? <MoveForm assignmentId={a.id} pupilId={p.id} targets={others} /> : null}
             </>
           ) : null}
@@ -91,6 +110,22 @@ export default async function ReviewPage({
 
         <section aria-labelledby="marks-h">
           <h2 id="marks-h" className="mb-3 text-lg font-medium">Marks</h2>
+          {v.run?.source === "ai" && !locked ? (
+            <section aria-label="AI suggestion" className="mb-4 rounded border border-blue-700 p-3 text-sm">
+              <p>
+                <strong>AI suggestion. Check every mark before approving.</strong> Confidence:{" "}
+                <strong>{v.run.confidence ? v.run.confidence[0]!.toUpperCase() + v.run.confidence.slice(1) : "not given"}</strong>.
+              </p>
+              {v.run.flags.length > 0 ? (
+                <>
+                  <p className="mt-2 font-medium">Check these {v.run.flags.length === 1 ? "point" : `${v.run.flags.length} points`}:</p>
+                  <ul className="mt-1 list-disc pl-5">
+                    {v.run.flags.map((f) => <li key={f}>{f}</li>)}
+                  </ul>
+                </>
+              ) : null}
+            </section>
+          ) : null}
           {locked && v.approval ? (
             <p className="mb-4 rounded border border-green-700 p-3">
               Approved by {v.approval.approvedBy} on {fmt.format(v.approval.approvedAt)}: {v.approval.finalTotal} / {a.totalMarks}. Marks are locked.
@@ -106,7 +141,8 @@ export default async function ReviewPage({
             pupilId={p.id}
             pupilCode={p.code}
             lines={v.lines}
-            feedback={s?.feedback ?? ""}
+            feedback={s?.feedback ?? v.run?.feedbackDraft ?? ""}
+            feedbackFromAi={!s?.feedback && Boolean(v.run?.feedbackDraft)}
             totalMarks={a.totalMarks}
             locked={locked || readOnly}
             disabledReason={readOnly ? "Read-only view. Marks are entered and approved by the class teachers." : absent ? "Mark the pupil present to enter marks." : null}

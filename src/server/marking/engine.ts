@@ -133,7 +133,8 @@ export async function runMarkingJob(
         position: i,
         label: l.label,
         max: l.max,
-        aiAwarded: l.awarded,
+        // A placeholder proposes nothing, so the teacher starts from blank boxes.
+        aiAwarded: proposal.meta.placeholder ? null : l.awarded,
         finalAwarded: null, // the teacher decides
         evidence: l.evidence || null,
         aiComment: l.comment || null,
