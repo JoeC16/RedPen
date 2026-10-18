@@ -70,3 +70,15 @@ One line per significant decision and the reason.
 - The worker runs inside the web server by default (one deploy target), and can run alone with `npm run worker`. A production separate-worker setup is left to step 8.
 - CI runs the eval harness on every PR. It calls the live AI only when `src/server/marking/` or `eval/` changes, to keep CI cost down.
 - Playwright resets the e2e database in the web server command, before the app starts, so the queue worker never connects to a half-reset schema. It never reuses an already-running server.
+
+## Step 4 (2026-10-18)
+
+- Photos are stored in a private bucket and only ever served by the app, through links signed for one user that expire in 5 minutes. The route also checks the session and access, so a leaked link is useless to anyone else and quickly expires. No presigned bucket URLs are used.
+- No image-processing library. Metadata is stripped by parsing the JPEG, PNG and WebP containers directly, so there are no native dependencies. Photos are not resized, so the 5 MB per-photo limit (the AI provider's) applies to the upload, and phones should use a normal camera resolution.
+- The JPEG orientation tag is the only metadata kept. Without it, phone photos display sideways for the teacher and the model.
+- HEIC is refused with instructions rather than converted, which would need a native decoder.
+- Photos are uploaded one per request from the browser. Each request stays well under the proxy's body limit, and the page shows which files failed and why.
+- Bulk matching uses the longest pupil code that the file name starts with, followed by the end of the name or a separator, so `NG10M012.jpg` is not taken as pupil `NG10M01`. Only codes in the assignment's class match.
+- The names-cropped confirmation is required per upload and recorded per file (who and when) as well as in the audit log, as the brief asks for photos.
+- Each AI run stores the ids of the photos it read, so the review screen can warn when photos change after marking. The teacher decides whether to mark again.
+- Adobe S3Mock is used locally and in CI to test the S3 driver against a real S3 API, because MinIO stopped publishing public images.

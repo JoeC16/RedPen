@@ -195,6 +195,16 @@ describe("ClaudeProvider", () => {
     expect(res).toMatchObject({ raw: good, model: "claude-test", tokensIn: 1800, tokensOut: 200, cacheReadTokens: 800, promptVersion: PROMPT_VERSION });
   });
 
+  it("sends photos as image blocks before the text, and asks for a transcription", async () => {
+    const { client, create } = fakeClient({});
+    const img = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+    await new ClaudeProvider(config, client).mark({ ...request, pupilText: "", images: [{ mediaType: "image/jpeg", data: img }, { mediaType: "image/png", data: img }] });
+    const msg = (create.mock.calls[0]![0] as { messages: { content: { type: string; source?: { media_type: string; data: string }; text?: string }[] }[] }).messages[0]!;
+    expect(msg.content.map((c) => c.type)).toEqual(["image", "image", "text"]);
+    expect(msg.content[0]!.source).toEqual({ type: "base64", media_type: "image/jpeg", data: img.toString("base64") });
+    expect(msg.content[2]!.text).toMatch(/see the attached photos; transcribe them first/);
+  });
+
   it("omits fallbacks and effort when turned off", async () => {
     const { client, create } = fakeClient({});
     await new ClaudeProvider({ apiKey: "t", model: "m", fallbacks: false }, client).mark(request);

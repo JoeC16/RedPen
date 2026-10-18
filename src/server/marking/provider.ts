@@ -8,6 +8,8 @@ export type MarkingRequest = {
   criteria: Criterion[];
   /** Redacted typed work. Never contains pupil or staff names. */
   pupilText: string;
+  /** Photographed pages, in order. The teacher confirmed names were cropped out. */
+  images?: { mediaType: "image/jpeg" | "image/png" | "image/webp"; data: Buffer }[];
 };
 
 export type ProviderResponse = {

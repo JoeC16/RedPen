@@ -1,5 +1,52 @@
 # Progress
 
+## Step 4: Photos and maths (done, in demo mode; live AI transcription not yet run)
+
+Built:
+
+- Migration `0005_photos.sql`: `submission_file` (storage key, type, size, page number, original file name, and the teacher's names-cropped confirmation), row-level security like the work itself (class teachers; school admins read-only), and a lock on photos of approved work.
+- Storage behind one interface:
+  - The `local` driver uses a folder, for development.
+  - The `s3` driver uses a private S3-compatible bucket with server-side encryption, for production.
+  - Object keys hold only the school id and a random id, never pupil identifiers.
+- Upload validation:
+  - The file type is checked from the bytes: JPEG, PNG or WebP only.
+  - 5 MB per photo (the AI provider's limit), at most 6 photos per pupil.
+  - iPhone HEIC gets a clear message explaining how to switch to JPEG.
+- Metadata removal: EXIF (including GPS location), XMP, IPTC and comments are stripped from every photo. Only the JPEG orientation is kept, so photos still display the right way up.
+- Names can't be redacted from a photo, so every upload needs the teacher to confirm names are cropped out or covered. The confirmation is stored on the file and in the audit log.
+- Bulk upload: choose many files or a whole folder. Each file is matched to a pupil by the code its name starts with (`NG10M01.jpg`, `NG10M01-2.jpg`). Pages are ordered by file name, and unmatched files are listed with the reason.
+- Photos are served only through the app, using links that are signed for one user and expire after 5 minutes. The route also checks the session and that the viewer may see that pupil's work. It sends `no-store`, `nosniff` and a sandboxing CSP. The bucket is never exposed.
+- Marking from photos:
+  - Photo-only work counts as work and can be sent for AI marking.
+  - The worker loads the photos and the Claude provider sends them as image blocks, asking for a transcription first (Appendix A's maths rule).
+  - Each run records which photos it read.
+- Review screen:
+  - Photos appear side by side with the AI transcription, so misreads are visible.
+  - A warning appears when the photos have changed since the AI read them.
+  - Teachers can remove a page or add photos for one pupil.
+- Demo mode does not pretend to read photos. It says so in the transcription box and in a flag, and proposes no marks.
+
+Acceptance: `e2e/photos.spec.ts` uses real JPEGs drawn in the browser, one carrying GPS metadata:
+1. Bulk upload refuses until the confirmation box is ticked, then matches two files by pupil code in the right page order and lists one unmatched file with the reason.
+2. The photos display, so the stripped JPEG still decodes, and the served file has no GPS data.
+3. Marking from the photos shows the transcription next to them.
+4. The teacher's signed link gives 403 to the school admin and 401 when signed out.
+5. Removing a page shows the "photos have changed" warning.
+
+Tests: 286 Vitest tests and 18 Playwright tests. The S3 driver is tested against a real S3 API (Adobe S3Mock) locally and in CI; MinIO no longer publishes images. Both new API routes are in the cross-school route sweep.
+
+Checked by hand in a browser (light and dark): the bulk upload page and the review screen with photos and transcription. Fixes from this and from the tests:
+- Bulk uploads numbered `NG01-2.jpg` as page 1 before `NG01.jpg`. Files are now ordered by name without the extension.
+- A transcription made from photos that were later changed gave no warning. It now does.
+- A storage key starting with `/` was not explicitly refused by the local driver. It is now.
+- One browser test occasionally hung when signing in the next user. It moved on before sign-out had finished, so `/login` redirected the still-signed-in user and the email field never appeared. It now waits for sign-out to complete. My first guess, slowness, was wrong: a longer time limit didn't fix it in CI.
+
+Not checked:
+- Live AI transcription of real handwriting (no API key here). This is the main thing to try with a key: real phone photos of maths working.
+- Deleting photos from storage when work is deleted by retention. That comes with the retention job in step 5.
+- The Docker image with photos: CI builds it.
+
 ## Step 3: Marking engine (done, in demo mode; live AI not yet run)
 
 Built:

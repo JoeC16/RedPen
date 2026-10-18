@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { ErrorBox, linkClass, Notice, secondaryButtonClass, StatusBadge } from "@/components/ui";
 import { MarkingProgress, RunMarkingButton } from "../../marking-controls";
-import { setAbsentAction } from "@/app/assignments/actions";
+import { deletePhotoAction, setAbsentAction } from "@/app/assignments/actions";
+import { PhotoUploader } from "@/components/photo-uploader";
 import { listAssignments } from "@/server/dal/assignments";
 import { getReview } from "@/server/dal/marking";
 import { workTypeLabel } from "@/server/marking/marks";
@@ -37,6 +38,10 @@ export default async function ReviewPage({
   const others = readOnly ? [] : (await listAssignments(user, a.classId))?.filter((x) => x.id !== a.id).map((x) => ({ id: x.id, title: x.title })) ?? [];
   const status = s?.status ?? "todo";
   const reopened = v.history.filter((h) => h.reopenedAt);
+  // The AI read a different set of photos from the ones there now.
+  const photosChanged =
+    v.run?.source === "ai" &&
+    (v.run.inputFileIds.length !== v.photos.length || v.photos.some((ph) => !v.run!.inputFileIds.includes(ph.id)));
 
   return (
     <AppShell user={user}>
@@ -71,6 +76,56 @@ export default async function ReviewPage({
       ) : null}
       {sp.moved ? <Notice>Work moved to this assignment. Mark it against this scheme.</Notice> : null}
 
+      {v.photos.length > 0 ? (
+        <section aria-labelledby="photos-h" className="mb-8">
+          <h2 id="photos-h" className="mb-3 text-lg font-medium">Photos and transcription</h2>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="space-y-4">
+              {v.photos.map((ph) => (
+                <figure key={ph.id} className="rounded border border-gray-200 p-2 dark:border-gray-800">
+                  {/* A plain <img>: the URL is private, signed and short-lived, so no image optimiser. */}
+                  <img src={ph.url} alt={`Page ${ph.position} of ${p.code}'s work`} className="max-h-[36rem] w-full object-contain" />
+                  <figcaption className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <span>
+                      Page {ph.position}
+                      {ph.originalName ? <span className="text-gray-600 dark:text-gray-300"> · {ph.originalName}</span> : null}
+                    </span>
+                    <span className="flex gap-3">
+                      <a href={ph.url} target="_blank" rel="noopener" className={linkClass}>Open full size</a>
+                      {!locked && !readOnly ? (
+                        <form action={deletePhotoAction.bind(null, ph.id, a.id, p.id)}>
+                          <button type="submit" className={linkClass} aria-label={`Remove page ${ph.position}`}>Remove</button>
+                        </form>
+                      ) : null}
+                    </span>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+            <div>
+              <h3 className="mb-2 font-medium">AI transcription</h3>
+              {photosChanged && !locked ? (
+                <p role="note" className="mb-2 rounded border border-amber-600 p-2 text-sm">
+                  The photos have changed since the AI read them, so this transcription and the suggested marks may be out of date. Use “Mark again with AI” to update them.
+                </p>
+              ) : null}
+              {v.run?.transcription ? (
+                <>
+                  <p className="mb-2 text-sm text-gray-700 dark:text-gray-300">
+                    Typed out by the AI from the photos, and marked from this text. Compare it with the photos: a misread here means a wrong mark.
+                  </p>
+                  <pre className="whitespace-pre-wrap rounded border border-gray-200 p-4 font-mono text-sm dark:border-gray-800">{v.run.transcription}</pre>
+                </>
+              ) : (
+                <p className="rounded border border-dashed border-gray-400 p-4 text-sm">
+                  {status === "marking" ? "The AI is reading the photos now." : "Appears here after AI marking."}
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <div className="grid gap-8 lg:grid-cols-2">
         <section aria-labelledby="work-h">
           <h2 id="work-h" className="mb-3 text-lg font-medium">Pupil work</h2>
@@ -78,17 +133,27 @@ export default async function ReviewPage({
             <p className="rounded border border-dashed border-gray-400 p-4">Marked absent for this assignment.</p>
           ) : s?.text ? (
             <div className="max-h-[32rem] overflow-y-auto whitespace-pre-wrap rounded border border-gray-200 p-4 dark:border-gray-800">{s.text}</div>
+          ) : v.photos.length > 0 ? (
+            <p className="rounded border border-dashed border-gray-400 p-4">The work is in the photos above.</p>
           ) : (
-            <p className="rounded border border-dashed border-gray-400 p-4">No typed work yet. You can still mark from paper.</p>
+            <p className="rounded border border-dashed border-gray-400 p-4">No typed work or photos yet. You can still mark from paper.</p>
           )}
           {!locked && !readOnly ? (
             <>
-              {!absent ? <WorkEditor assignmentId={a.id} pupilId={p.id} text={s?.text ?? ""} open={!s?.text} /> : null}
+              {!absent ? <WorkEditor assignmentId={a.id} pupilId={p.id} text={s?.text ?? ""} open={!s?.text && v.photos.length === 0} /> : null}
+              {!absent ? (
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-sm font-medium">{v.photos.length ? "Add more photos" : "Add photos"}</summary>
+                  <div className="mt-2">
+                    <PhotoUploader assignmentId={a.id} pupilId={p.id} pupilCode={p.code} />
+                  </div>
+                </details>
+              ) : null}
               <form action={setAbsentAction.bind(null, a.id, p.id)} className="mt-4">
                 <input type="hidden" name="absent" value={absent ? "0" : "1"} />
                 <button type="submit" className={secondaryButtonClass}>{absent ? "Mark present" : "Mark absent"}</button>
               </form>
-              {s?.text && !absent && status !== "marking" && status !== "failed" ? (
+              {(s?.text || v.photos.length > 0) && !absent && status !== "marking" && status !== "failed" ? (
                 <div className="mt-4">
                   <RunMarkingButton
                     assignmentId={a.id}

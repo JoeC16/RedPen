@@ -11,6 +11,7 @@ The build brief is [`CLAUDE.md`](CLAUDE.md). Progress is in [`docs/progress.md`]
 - Step 1 (foundation): sign-in, the three roles, tenancy with row-level security, and the audit log.
 - Step 2 (teacher core, no AI): classes, pupil import, assignments with mark schemes, typed work, the review queue and screen, manual marking, approval one pupil at a time, reopening, and CSV export.
 
+- Step 4 (photos): photographed work, uploaded per pupil or in bulk by pupil code, with location data stripped and a names-cropped confirmation. The AI transcribes the photos and the transcription is shown next to them.
 - Step 3 (marking engine): AI marking through Claude or a built-in demo provider, background jobs, redaction, prompt-injection checks, rate limits and the evaluation harness.
 
 Without `ANTHROPIC_API_KEY` the app runs in **demo mode**: AI marking returns fixed example results for the demo pupils, and a banner says so.
@@ -58,6 +59,8 @@ Settings (see `.env.example`):
 - `ANTHROPIC_MODEL` (required for live marking; never hard-coded), `MARKING_EFFORT` and `ANTHROPIC_FALLBACKS` control the model.
 - The `MARKING_LIMIT_*` variables set the hourly rate limits.
 - `MARKING_WORKER=off` turns off the in-process worker; then run `npm run worker` separately.
+
+Photos: **Upload photos** on the assignment page takes many files or a whole folder, matched to pupils by the code at the start of each file name (`NG10M01.jpg`, `NG10M01-2.jpg`). Teachers must confirm names are cropped out, because names in a photo cannot be removed automatically. Storage is a local folder in development (`STORAGE_DRIVER=local`) and a private S3-compatible bucket in production (`STORAGE_DRIVER=s3`, see `.env.example`).
 
 Names never go to the model. Every pupil and staff name in the school is replaced with `[name]` before sending.
 

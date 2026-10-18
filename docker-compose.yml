@@ -16,6 +16,17 @@ services:
       timeout: 3s
       retries: 20
 
+  # S3-compatible store for trying STORAGE_DRIVER=s3 locally (and the S3 driver test).
+  # `docker compose --profile s3 up -d s3`, then S3_ENDPOINT=http://localhost:9090,
+  # S3_BUCKET=redpen-dev, S3_FORCE_PATH_STYLE=true, any access key and secret.
+  s3:
+    profiles: ["s3"]
+    image: adobe/s3mock:4.7.0
+    environment:
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: redpen-dev,redpen-test
+    ports:
+      - "9090:9090"
+
   app:
     profiles: ["app"]
     build: .
