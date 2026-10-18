@@ -36,7 +36,7 @@ One line per significant decision and the reason.
 - Teachers define one mark line per question or criterion when they create an assignment. The lines must add up to the total. Manual marking uses these lines, and in step 3 they give the AI a fixed structure to fill.
 - Manual marking is stored as a `mark_result` run with `source = 'manual'` and empty `ai_awarded`. Manual and AI runs share one review screen and one approval path, and agreement figures count only AI runs.
 - Marks are `numeric(5,1)` with a `half_mark` domain that allows only whole and half marks. Line maxima are whole numbers.
-- School admins and authority admins cannot see pupil work, marks or feedback at row level. The brief gives school admins "manage teachers and classes" and a dashboard (aggregates). **This needs your confirmation.** It is easy to relax if school leaders should be able to read work.
+- ~~School admins cannot see pupil work, marks or feedback.~~ Superseded 2026-10-18, see below.
 - Teachers can create classes and are assigned to them automatically (a security-definer function, so a teacher can never add themselves to a colleague's class). School admins share classes with teachers.
 - Pupil codes stay unique per school. An import that clashes with any code in the school is refused, without revealing which class holds it.
 - Editing a scheme increments `scheme_version`. A run belongs to an assignment and a scheme version, so drafts made under an older scheme or a different assignment stay as history and are not reused.
@@ -46,3 +46,9 @@ One line per significant decision and the reason.
 - Absent pupils cannot be marked or approved. They export as "absent".
 - CSV export includes pupil names, since the export is for the class teacher's own markbook. Formula-like cells are prefixed with a quote mark.
 - CI runs on pull requests and on pushes to `main`, not on every branch push, to avoid duplicate runs.
+
+## Step 2 follow-up (2026-10-18)
+
+- Founder decision: **school admins can read pupil work and marks in their school.** This is read-only: marking, approval, reopening and export stay with the class's teachers. Pupil names stay teacher-only. Each time a school admin opens a pupil's work, an audit event (`submission.viewed`) is recorded. Authority admins still see none of it (migration `0003_school_admin_read.sql`).
+- The per-pupil feedback sheet is a printable page, one pupil per page, saved as PDF from the browser's print dialog. No PDF library, so no new dependency or server-side rendering. The output is accessible HTML and prints the same on any device. Teachers open it from the assignment (all approved pupils) or from one pupil's review screen. Generating sheets is audit logged (`export.feedback_sheets`). If a one-click .pdf download is needed later, it can be added behind the same data function.
+- Print styles force black on white whatever the screen theme, and hide the navigation.

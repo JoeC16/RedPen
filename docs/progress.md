@@ -1,5 +1,12 @@
 # Progress
 
+## Step 2 follow-up: school admin read access and feedback sheets (done)
+
+- School admins can open any assignment and pupil in their school read-only, with codes but no names. There are no marking controls. Each view of pupil work is audit logged. Row-level security allows them to read but not change, and refuses deleting approvals for everyone.
+- Feedback sheets: one printed page per approved pupil (school, class, assignment, code and name, marks per line, total, feedback, approver and date). "Print or save as PDF" uses the browser. Available for the whole assignment or one pupil.
+- Tests: 184 Vitest tests (school admin read-but-not-write at the data-access and database layers, other schools' admins still refused, audit of views, the feedback-sheet export) and 16 Playwright tests. The end-to-end flow now opens the feedback sheets and checks print mode hides the navigation, and the school admin journey checks the read-only review.
+- Checked by hand: I generated the PDF from the page in Chromium and read it (one A4 page per pupil, black on white even from dark mode), and opened the school admin read-only review screen. This turned up a stale-CSS build issue, solved by a clean build. The app was not at fault.
+
 ## Step 2: Teacher core without AI (done)
 
 Built:
@@ -31,7 +38,6 @@ Checked by hand in a browser (light and dark): class page, new assignment form, 
 
 Not built or not checked:
 
-- The per-pupil PDF feedback sheet from the teacher workflow. No build step names it. I have a question for you about this.
 - Deleting a submission early. This is with retention in step 5.
 - Screen reader testing (planned for step 7).
 
