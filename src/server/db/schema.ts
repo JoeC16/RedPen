@@ -134,6 +134,7 @@ export const submission = pgTable("submission", {
   createdAt: createdAt(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   deleteAfter: timestamp("delete_after", { withTimezone: true }),
+  failureReason: text("failure_reason"),
 });
 
 export const markResult = pgTable("mark_result", {
@@ -156,6 +157,8 @@ export const markResult = pgTable("mark_result", {
   latencyMs: integer("latency_ms"),
   createdBy: uuid("created_by"),
   createdAt: createdAt(),
+  jobId: text("job_id"),
+  cacheReadTokens: integer("cache_read_tokens"),
 });
 
 export const markLine = pgTable("mark_line", {
@@ -170,6 +173,7 @@ export const markLine = pgTable("mark_line", {
   finalAwarded: halfMark("final_awarded"),
   evidence: text("evidence"),
   comment: text("comment"),
+  aiComment: text("ai_comment"),
 });
 
 export const approval = pgTable("approval", {
@@ -187,4 +191,15 @@ export const approval = pgTable("approval", {
   reopenedAt: timestamp("reopened_at", { withTimezone: true }),
   reopenedBy: uuid("reopened_by"),
   reopenReason: text("reopen_reason"),
+});
+
+// ---------------------------------------------------------------------------
+// 0004 marking engine
+// ---------------------------------------------------------------------------
+export const markingRequest = pgTable("marking_request", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  schoolId: uuid("school_id").notNull(),
+  userId: uuid("user_id").notNull(),
+  submissionId: uuid("submission_id").notNull(),
+  createdAt: createdAt(),
 });

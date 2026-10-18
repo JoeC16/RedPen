@@ -1,0 +1,65 @@
+{
+  "id": "essay-01",
+  "provenance": "Synthetic example written by Claude for development. The reference marks are Claude's, not a teacher's. Replace with teacher-marked work before quoting agreement figures.",
+  "workType": "essay",
+  "title": "Descriptive writing: a winter market",
+  "yearGroup": 8,
+  "subject": "English",
+  "schemeText": "Task: Describe a busy market on a winter morning. (10)\nContent and organisation (4): 4 clear focus, well structured, paragraphs build a sense of place; 3 mostly focused with some structure; 2 some relevant ideas, limited structure; 1 few relevant ideas; 0 nothing relevant.\nLanguage and imagery (4): 4 ambitious vocabulary and varied imagery used deliberately; 3 some effective imagery and well-chosen words; 2 some descriptive words, simple imagery; 1 basic vocabulary; 0 nothing creditable.\nAccuracy (2): 2 spelling, punctuation and grammar mostly accurate with varied sentences; 1 errors that do not obscure meaning; 0 errors obscure meaning.",
+  "totalMarks": 10,
+  "criteria": [
+    {
+      "label": "Content and organisation",
+      "max": 4
+    },
+    {
+      "label": "Language and imagery",
+      "max": 4
+    },
+    {
+      "label": "Accuracy",
+      "max": 2
+    }
+  ],
+  "pupilWork": "The market wakes before the sun does. Stallholders stamp their boots against the cold, their breath hanging in the air like small grey ghosts. Strings of bulbs sway above the aisles, throwing puddles of yellow light onto the wet cobbles.\n\nBy eight o'clock the place is roaring. A fishmonger bellows prices over a bed of glittering ice, and the smell of frying onions drifts from the burger van, warm and greasy and impossible to ignore. Children press their noses against the sweet stall, where jars of bonbons glow like jewels.\n\nIn the far corner an old man plays the fiddle. His fingers are red raw but the tune is quick and bright, and for a moment the shoppers slow down, as if the music has thawed something in them. Then the bell of the clock tower rings nine and the crowd surges on again.",
+  "reference": {
+    "marks": [
+      4,
+      3,
+      2
+    ],
+    "notes": "Clear structure from dawn to nine o'clock. Imagery effective but some familiar similes ('like jewels'), so 3 not 4. Accurate.",
+    "markedBy": "Claude (synthetic reference, not a teacher)"
+  },
+  "demoResult": {
+    "transcription": "",
+    "confidence": "medium",
+    "flags": [
+      "Language and imagery is between bands 3 and 4; check against your band descriptors."
+    ],
+    "feedback": "Your description moves through the morning in time, which gives it a strong shape, and images like the breath 'like small grey ghosts' really work. Next, try replacing familiar comparisons such as 'like jewels' with ones only you would think of.",
+    "criteria": [
+      {
+        "point": "Content and organisation",
+        "awarded": 4,
+        "max": 4,
+        "evidence": "The market wakes before the sun does.",
+        "comment": "Clear focus; paragraphs follow the morning."
+      },
+      {
+        "point": "Language and imagery",
+        "awarded": 4,
+        "max": 4,
+        "evidence": "breath hanging in the air like small grey ghosts",
+        "comment": "Varied, deliberate imagery throughout."
+      },
+      {
+        "point": "Accuracy",
+        "awarded": 2,
+        "max": 2,
+        "evidence": "red raw but the tune is quick and bright",
+        "comment": "Accurate with varied sentence structures."
+      }
+    ]
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "id": "maths-02",
+  "provenance": "Synthetic example written by Claude for development. The reference marks are Claude's, not a teacher's. Replace with teacher-marked work before quoting agreement figures.",
+  "workType": "maths",
+  "title": "Algebra and area",
+  "yearGroup": 10,
+  "subject": "Mathematics",
+  "schemeText": "Q1 Expand and simplify 3(x + 4) - 2(x - 1). (2) M1 both brackets expanded correctly: 3x + 12 - 2x + 2. A1 x + 14.\nQ2 Solve 5x - 7 = 2x + 8. (2) M1 collecting x terms and numbers correctly, e.g. 3x = 15. A1 x = 5.\nQ3 A rectangle is (2x + 3) cm long and 4 cm wide. Its area is 44 cm^2. Find x. (3) M1 forming 4(2x + 3) = 44 or equivalent. M1 correct method to solve, e.g. 8x = 32 or 2x + 3 = 11. A1 x = 4.\nA correct answer with no working gets full marks unless the question asks for working.",
+  "totalMarks": 7,
+  "criteria": [
+    {
+      "label": "Q1",
+      "max": 2
+    },
+    {
+      "label": "Q2",
+      "max": 2
+    },
+    {
+      "label": "Q3",
+      "max": 3
+    }
+  ],
+  "pupilWork": "Q1 3x + 12 - 2x - 2 = x + 10\nQ2 3x = 15 so x = 5\nQ3 2x + 3 = 44 / 4 = 11\n2x = 8\nx = 4",
+  "reference": {
+    "marks": [
+      0,
+      2,
+      3
+    ],
+    "notes": "Q1 sign error in second bracket, so no method mark. Q3 equation formed implicitly by dividing the area by the width.",
+    "markedBy": "Claude (synthetic reference, not a teacher)"
+  },
+  "demoResult": {
+    "transcription": "",
+    "confidence": "medium",
+    "flags": [
+      "Q1: sign error when expanding -2(x - 1). The scheme gives no method mark for one bracket."
+    ],
+    "feedback": "Your method for the area question is efficient and correct. Next, take care with negative signs when you expand a bracket with a minus in front.",
+    "criteria": [
+      {
+        "point": "Q1",
+        "awarded": 0,
+        "max": 2,
+        "evidence": "3x + 12 - 2x - 2",
+        "comment": "-2 x -1 should give +2; expansion not fully correct."
+      },
+      {
+        "point": "Q2",
+        "awarded": 2,
+        "max": 2,
+        "evidence": "3x = 15 so x = 5",
+        "comment": "M1 A1."
+      },
+      {
+        "point": "Q3",
+        "awarded": 3,
+        "max": 3,
+        "evidence": "2x + 3 = 44 / 4 = 11",
+        "comment": "Equation formed by dividing area by width; solved correctly."
+      }
+    ]
+  }
+}

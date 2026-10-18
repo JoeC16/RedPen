@@ -47,8 +47,19 @@ export async function migrate(adminUrl: string, log: (msg: string) => void = con
   }
 }
 
-/** Drop and recreate the public schema. Only for dev and test databases. */
-export async function resetSchema(adminUrl: string): Promise<void> {
+/**
+ * Drop and recreate the public schema. Only for dev and test databases. The
+ * pg-boss schema belongs to the app role, so it is dropped with appUrl if given.
+ */
+export async function resetSchema(adminUrl: string, appUrl?: string): Promise<void> {
+  if (appUrl) {
+    const app = postgres(appUrl, { max: 1, onnotice: () => {} });
+    try {
+      await app.unsafe("drop schema if exists pgboss cascade");
+    } finally {
+      await app.end();
+    }
+  }
   const sql = postgres(adminUrl, { max: 1, onnotice: () => {} });
   try {
     await sql.unsafe("drop schema if exists public cascade; create schema public;");

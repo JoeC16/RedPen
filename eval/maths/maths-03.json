@@ -1,0 +1,66 @@
+{
+  "id": "maths-03",
+  "provenance": "Synthetic example written by Claude for development. The reference marks are Claude's, not a teacher's. Replace with teacher-marked work before quoting agreement figures.",
+  "workType": "maths",
+  "title": "Algebra and area",
+  "yearGroup": 10,
+  "subject": "Mathematics",
+  "schemeText": "Q1 Expand and simplify 3(x + 4) - 2(x - 1). (2) M1 both brackets expanded correctly: 3x + 12 - 2x + 2. A1 x + 14.\nQ2 Solve 5x - 7 = 2x + 8. (2) M1 collecting x terms and numbers correctly, e.g. 3x = 15. A1 x = 5.\nQ3 A rectangle is (2x + 3) cm long and 4 cm wide. Its area is 44 cm^2. Find x. (3) M1 forming 4(2x + 3) = 44 or equivalent. M1 correct method to solve, e.g. 8x = 32 or 2x + 3 = 11. A1 x = 4.\nA correct answer with no working gets full marks unless the question asks for working.",
+  "totalMarks": 7,
+  "criteria": [
+    {
+      "label": "Q1",
+      "max": 2
+    },
+    {
+      "label": "Q2",
+      "max": 2
+    },
+    {
+      "label": "Q3",
+      "max": 3
+    }
+  ],
+  "pupilWork": "Q1 x + 14\nQ2 x = 15/3 = 5\nQ3 area = 44 so the length is 44 ÷ 4 = 11\n11 - 3 = 7\n7 ÷ 2 = 3.5\nx = 3.5",
+  "reference": {
+    "marks": [
+      2,
+      2,
+      2
+    ],
+    "notes": "Q1 correct answer, no working: full marks per scheme. Q3 inverse-operations method is valid (M1 M1) but 11 - 3 = 8, so A0.",
+    "markedBy": "Claude (synthetic reference, not a teacher)"
+  },
+  "demoResult": {
+    "transcription": "",
+    "confidence": "medium",
+    "flags": [
+      "Q1: correct answer with no working shown; the scheme allows full marks.",
+      "Q3: unusual but valid method (working backwards). Arithmetic slip 11 - 3 = 7."
+    ],
+    "feedback": "Working backwards from the area was a clever way to tackle Q3. Next, double-check each subtraction: 11 - 3 is 8, which would have given x = 4.",
+    "criteria": [
+      {
+        "point": "Q1",
+        "awarded": 2,
+        "max": 2,
+        "evidence": "x + 14",
+        "comment": "Correct answer; no working, full marks per scheme."
+      },
+      {
+        "point": "Q2",
+        "awarded": 2,
+        "max": 2,
+        "evidence": "x = 15/3 = 5",
+        "comment": "Correct; collection implied."
+      },
+      {
+        "point": "Q3",
+        "awarded": 2,
+        "max": 3,
+        "evidence": "11 - 3 = 7",
+        "comment": "Valid inverse method, arithmetic error loses A1."
+      }
+    ]
+  }
+}
