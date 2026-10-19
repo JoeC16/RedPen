@@ -18,6 +18,7 @@ export default async function TrustPage() {
   const o = org();
   const days = authority?.retentionDays;
   const demo = markingMode() === "demo";
+  const backupDays = Number(process.env.BACKUP_RETENTION_DAYS) || null;
 
   return (
     <TrustShell user={user}>
@@ -100,13 +101,20 @@ export default async function TrustPage() {
         </p>
         <p>The marks, dates and the difference between the AI&apos;s mark and the teacher&apos;s are kept, linked only to the pupil code, for the school&apos;s markbook and for the quality figures.</p>
         <p>{confirmed("ours.deletion")}</p>
+        {backupDays ? (
+          <p>
+            Backups (daily snapshots of the database and photo storage) are kept for {backupDays} days, so deleted work can remain in a backup for up to{" "}
+            {backupDays} days after it is deleted.
+          </p>
+        ) : null}
       </Section>
 
       <Section id="where" title="Where data is stored">
         <p>
           The database runs with <FactText f={o.hostingProvider} /> in <FactText f={o.hostingRegion} />. Photos are kept in private object storage with{" "}
-          <FactText f={o.storageProvider} /> in <FactText f={o.storageRegion} />, encrypted at rest by the storage service.
+          <FactText f={o.storageProvider} /> in <FactText f={o.storageRegion} />.
         </p>
+        <ClaimList topic="hosting" />
         <p>
           Pupil work sent for marking is processed by the AI provider, Anthropic, through its own API. {confirmed("provider.region-direct")} Before any school
           uses {o.product} with real pupils, we will move marking to an EU route (Claude on Amazon Bedrock) and update this page.

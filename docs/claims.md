@@ -332,6 +332,54 @@ Open question: Which sub-processors Anthropic itself uses, and in which countrie
 
 Note: The DPA points to https://www.anthropic.com/subprocessors, which redirects to trust.anthropic.com, blocked by this environment's network policy.
 
+## Hosting (Fly.io)
+
+### hosting.region
+
+**Confirmed.** The app, its database and its stored photos run on Fly.io in London. Fly's servers and storage volumes stay in the region where they are created.
+
+Source: [Fly.io docs: Regions](https://fly.io/docs/reference/regions/), read 2026-10-19.
+
+> Fly Volumes and Fly Machines are tied to the region they're created in.
+
+Source: [Fly.io docs: Volumes overview](https://fly.io/docs/volumes/overview/), read 2026-10-19.
+
+> Each volume exists on one server in a single region. It is not network storage.
+
+Note: Configured in fly.toml and deploy/db/fly.toml (primary_region lhr). Fly's global object storage (Tigris) is deliberately not used, because it replicates data worldwide.
+
+### hosting.encryption
+
+**Confirmed.** The database and photos are on storage volumes that are encrypted at rest, and so are their snapshots.
+
+Source: [Fly.io docs: Volumes overview](https://fly.io/docs/volumes/overview/), read 2026-10-19.
+
+> Volumes are, by default, created with encryption-at-rest enabled for additional protection of the data on the volume.
+
+Source: [Fly.io docs: Volume snapshots](https://fly.io/docs/volumes/snapshots/), read 2026-10-19.
+
+> Snapshots of encrypted volumes (defaults to true) are likewise encrypted at rest.
+
+Note: deploy/fly-setup.sh creates the volumes without --no-encryption.
+
+### hosting.snapshots
+
+**Confirmed.** Fly takes a snapshot of each volume every day; Red Pen keeps 14 days of them.
+
+Source: [Fly.io docs: Volume snapshots](https://fly.io/docs/volumes/snapshots/), read 2026-10-19.
+
+> We automatically take daily snapshots of all Fly Volumes. We store snapshots for 5 days by default, but you can set volume snapshot retention from 1 to 60 days.
+
+Note: Retention is set to 14 days in deploy/fly-setup.sh and both fly.toml files. Snapshots are of the whole volume, so deleted pupil work can remain in a snapshot for up to 14 days after deletion; the trust centre's retention section should say so before real data.
+
+### hosting.snapshot-location
+
+**NOT CONFIRMED.** Where Fly.io stores volume snapshots.
+
+Open question: Which country Fly.io stores volume snapshots in.
+
+Note: Fly's documentation does not say. Ask Fly before claiming that backups stay in the UK.
+
 ## UK guidance
 
 ### guidance.dfe-genai

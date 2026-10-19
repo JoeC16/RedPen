@@ -28,7 +28,8 @@ export function DataSheet({ o, authorityName, retentionDays }: DocCtx) {
       <h2>Where</h2>
       <ul>
         <li>Database: <FactText f={o.hostingProvider} />, <FactText f={o.hostingRegion} />.</li>
-        <li>Photos: <FactText f={o.storageProvider} />, <FactText f={o.storageRegion} />, private and encrypted at rest.</li>
+        <li>Photos: <FactText f={o.storageProvider} />, <FactText f={o.storageRegion} />, private.</li>
+        <li>{confirmed("hosting.encryption")}</li>
         <li>AI marking: Anthropic. {confirmed("provider.region-direct")} We will move to an EU route before real pupil data is processed.</li>
       </ul>
       <h2>Retention</h2>

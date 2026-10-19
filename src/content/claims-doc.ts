@@ -5,6 +5,7 @@ import { CLAIMS, type Claim } from "./claims";
 const heading: Record<Claim["topic"], string> = {
   ours: "How Red Pen is built",
   provider: "The AI provider (Anthropic)",
+  hosting: "Hosting (Fly.io)",
   guidance: "UK guidance",
 };
 
@@ -32,7 +33,7 @@ export function claimsMarkdown(): string {
     "Re-check provider and guidance claims before each sales conversation and at least every six months: terms and guidance change.",
     "",
   ];
-  for (const topic of ["ours", "provider", "guidance"] as const) {
+  for (const topic of ["ours", "provider", "hosting", "guidance"] as const) {
     const list = CLAIMS.filter((c) => c.topic === topic);
     if (!list.length) continue;
     out.push(`## ${heading[topic]}`, "", ...list.map(entry));
