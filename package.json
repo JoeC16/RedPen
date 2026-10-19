@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:scripts": "esbuild scripts/demo-reset.ts --bundle --platform=node --format=esm --target=node22 --external:@node-rs/argon2 --outfile=dist-scripts/demo-reset.mjs --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "db:migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts",

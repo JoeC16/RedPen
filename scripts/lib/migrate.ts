@@ -3,7 +3,8 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import postgres from "postgres";
 
-const MIGRATIONS_DIR = path.resolve(import.meta.dirname, "../../db/migrations");
+// MIGRATIONS_DIR is set in the production image, where scripts are bundled elsewhere.
+const MIGRATIONS_DIR = process.env.MIGRATIONS_DIR ?? path.resolve(import.meta.dirname, "../../db/migrations");
 
 /**
  * Apply db/migrations/*.sql in filename order, each in its own transaction.
