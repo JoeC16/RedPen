@@ -21,3 +21,6 @@ Ideas outside v1 scope. Not to be built until agreed.
 - Confirm with Anthropic whether a teacher-only tool counts as a "product serving minors" under its usage policy.
 - Read the blocked sources (gov.uk, ICO, legislation.gov.uk, DE NI, privacy.claude.com, trust.anthropic.com) and settle the open claims.
 - Legal review of the DPA and DPIA templates; Welsh or Irish language versions if a buyer needs them.
+- Managed Postgres in London with automatic failover and point-in-time recovery (check that the app role stays subject to row-level security), or a replica.
+- Encrypted logical backups to UK or EU storage we control, on a schedule, with a recorded monthly restore drill.
+- Practise restoring a Fly volume snapshot.

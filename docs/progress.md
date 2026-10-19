@@ -1,5 +1,46 @@
 # Progress
 
+## Step 8: Deploy (built and tested in CI; waiting for the founder's Fly.io account to go live)
+
+Built (details in `docs/deploy.md`):
+
+- **Fly.io in London**, as the founder chose.
+  - **Web app:** one always-on Machine, so the marking worker and the hourly retention job keep running. Fly's auto-stop ignores background work.
+  - **Photos:** on a London volume. Not Fly's object storage, which replicates worldwide.
+  - **Database:** our own PostgreSQL 16 app on the private network only, with no public IP. Founder's choice: Fly Managed Postgres offers only preset users, and its docs don't confirm row-level security would still hold the app.
+- **First-time setup** is a GitHub workflow (**Fly.io first-time setup**). It creates both apps and their volumes, generates every secret on the runner without printing it, deploys the database and the app, and waits for the site to report healthy. It is safe to re-run.
+- **Deploys.** After setup, every green CI run on `main` deploys automatically, then checks the live site. Migrations run as Fly's release command first, so a failed migration leaves the old version running.
+- **Demo reset.** A **Reset demo data** workflow (type RESET) reseeds the demo dated to today. On first start, a demo deployment seeds itself into an empty database. Both are refused unless `ALLOW_DEMO_SEED=true`. The reset script is bundled into the image (`npm run build:scripts`), because Node can't run our TypeScript scripts directly.
+- **Backups.**
+  - Fly's daily encrypted volume snapshots, kept 14 days.
+  - Logical backups: `scripts/db-backup.sh` leaves out the job queue; `scripts/db-restore.sh` restores.
+  - `scripts/verify-restore.ts` checks a restore table by table with a row fingerprint, plus the security policies, the lock triggers, the append-only audit log and tenancy as the app role. I tested that it catches a single changed row.
+- **Uptime.** A GitHub workflow checks health, HTTPS and the security headers from outside every 15 minutes once `PUBLIC_URL` is set. Fly's own check stops routing to an unhealthy Machine; Fly's docs say it does not restart it.
+- **Security fixes found while preparing production:**
+  - Sign-in rate limiting used the left-most `X-Forwarded-For` entry, which a client can forge to dodge the per-address limit. It now uses a header the proxy sets (`CLIENT_IP_HEADER=fly-client-ip` on Fly), or else the right-most entry.
+  - The container now starts as root only to prepare the mounted volume, then drops to the app user before running anything.
+- **Trust centre:**
+  - New hosting claims quoted from Fly's docs: London region, encryption at rest, daily snapshots.
+  - Where Fly stores snapshots is listed as not confirmed.
+  - A sentence states that deleted work can remain in a backup for up to the backup retention period (`BACKUP_RETENTION_DAYS`).
+
+Tested:
+- **CI now runs the production image as Fly will:**
+  - migration the way the release command runs it;
+  - start-up with a root-owned volume;
+  - self-seeding, health, pages and the HSTS header;
+  - a check that the server is not root and can write to the volume;
+  - then backup, restore and verification of that data.
+- **Locally:**
+  - the bundled reset run as production would run it, including the guard refusing without `ALLOW_DEMO_SEED`;
+  - backup, restore and verify;
+  - the client-address unit tests.
+
+Not done or not checked:
+- **Nothing is live yet.** It needs the founder's Fly account and the `FLY_API_TOKEN` secret, after which the setup workflow is the first real run. This environment can't reach fly.io, so no Fly command has been run from here; every command and setting was checked against Fly's documentation repository (16 October 2026).
+- **A snapshot restore on Fly hasn't been practised.** The logical restore is tested in CI.
+- **One database Machine:** no automatic failover. Acceptable for demos with invented data, and listed in `docs/deploy.md` under "Before real pupil data".
+
 ## Step 7: Demo hardening (done)
 
 Built:

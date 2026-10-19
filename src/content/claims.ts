@@ -11,7 +11,7 @@ export type Source = { title: string; url: string; quote: string; checked: strin
 
 export type Claim = {
   id: string;
-  topic: "ours" | "provider" | "guidance";
+  topic: "ours" | "provider" | "hosting" | "guidance";
   statement: string;
   status: "confirmed" | "unconfirmed";
   /** For "ours": file paths of the code and tests that make it true. */
@@ -360,6 +360,62 @@ export const CLAIMS: Claim[] = [
     status: "unconfirmed",
     question: "Which sub-processors Anthropic itself uses, and in which countries.",
     note: "The DPA points to https://www.anthropic.com/subprocessors, which redirects to trust.anthropic.com, blocked by this environment's network policy.",
+  },
+
+  // -------------------------------------------------------------------------
+  // Hosting (Fly.io, decision 2026-10-19). Read from Fly's documentation
+  // repository (github.com/superfly/docs at 2f68a40, 16 October 2026), which
+  // is the source of fly.io/docs; fly.io itself is blocked from this environment.
+  // -------------------------------------------------------------------------
+  {
+    id: "hosting.region",
+    topic: "hosting",
+    statement: "The app, its database and its stored photos run on Fly.io in London. Fly's servers and storage volumes stay in the region where they are created.",
+    status: "confirmed",
+    sources: [
+      { title: "Fly.io docs: Regions", url: "https://fly.io/docs/reference/regions/", quote: "Fly Volumes and Fly Machines are tied to the region they're created in.", checked: "2026-10-19" },
+      { title: "Fly.io docs: Volumes overview", url: "https://fly.io/docs/volumes/overview/", quote: "Each volume exists on one server in a single region. It is not network storage.", checked: "2026-10-19" },
+    ],
+    note: "Configured in fly.toml and deploy/db/fly.toml (primary_region lhr). Fly's global object storage (Tigris) is deliberately not used, because it replicates data worldwide.",
+  },
+  {
+    id: "hosting.encryption",
+    topic: "hosting",
+    statement: "The database and photos are on storage volumes that are encrypted at rest, and so are their snapshots.",
+    status: "confirmed",
+    sources: [
+      {
+        title: "Fly.io docs: Volumes overview",
+        url: "https://fly.io/docs/volumes/overview/",
+        quote: "Volumes are, by default, created with encryption-at-rest enabled for additional protection of the data on the volume.",
+        checked: "2026-10-19",
+      },
+      { title: "Fly.io docs: Volume snapshots", url: "https://fly.io/docs/volumes/snapshots/", quote: "Snapshots of encrypted volumes (defaults to true) are likewise encrypted at rest.", checked: "2026-10-19" },
+    ],
+    note: "deploy/fly-setup.sh creates the volumes without --no-encryption.",
+  },
+  {
+    id: "hosting.snapshots",
+    topic: "hosting",
+    statement: "Fly takes a snapshot of each volume every day; Red Pen keeps 14 days of them.",
+    status: "confirmed",
+    sources: [
+      {
+        title: "Fly.io docs: Volume snapshots",
+        url: "https://fly.io/docs/volumes/snapshots/",
+        quote: "We automatically take daily snapshots of all Fly Volumes. We store snapshots for 5 days by default, but you can set volume snapshot retention from 1 to 60 days.",
+        checked: "2026-10-19",
+      },
+    ],
+    note: "Retention is set to 14 days in deploy/fly-setup.sh and both fly.toml files. Snapshots are of the whole volume, so deleted pupil work can remain in a snapshot for up to 14 days after deletion; the trust centre's retention section should say so before real data.",
+  },
+  {
+    id: "hosting.snapshot-location",
+    topic: "hosting",
+    statement: "Where Fly.io stores volume snapshots.",
+    status: "unconfirmed",
+    question: "Which country Fly.io stores volume snapshots in.",
+    note: "Fly's documentation does not say. Ask Fly before claiming that backups stay in the UK.",
   },
 
   // -------------------------------------------------------------------------

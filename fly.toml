@@ -1,0 +1,57 @@
+# Red Pen web app on Fly.io, London. One always-on Machine: the marking worker
+# and the hourly retention job run inside it, and Fly's auto-stop does not count
+# background work. Photos are kept on a London volume, not in global storage.
+# First-time setup: .github/workflows/fly-setup.yml; then every green CI run on
+# main deploys (.github/workflows/deploy.yml). See docs/deploy.md.
+app = "redpen-demo"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[deploy]
+  # Migrations run once per deploy, before the new version starts.
+  release_command = "node scripts/migrate.ts"
+
+[env]
+  APP_NAME = "Red Pen"
+  AUTH_TRUST_HOST = "true"
+  # Fly's proxy sets this to the client's address; clients cannot forge it.
+  CLIENT_IP_HEADER = "fly-client-ip"
+  STORAGE_DRIVER = "local"
+  STORAGE_LOCAL_DIR = "/data/photos"
+  # Demo deployment: built-in example marking, invented data, seeded on first start.
+  MARKING_MODE = "demo"
+  ALLOW_DEMO_SEED = "true"
+  SEED_DEMO_IF_EMPTY = "true"
+  # Shown in the trust centre and generated documents.
+  HOSTING_PROVIDER = "Fly.io"
+  HOSTING_REGION = "London, United Kingdom (lhr)"
+  STORAGE_PROVIDER = "Fly.io volume attached to the app"
+  STORAGE_REGION = "London, United Kingdom (lhr)"
+  # Volume snapshot retention (below and in deploy/db/fly.toml), stated in the trust centre.
+  BACKUP_RETENTION_DAYS = "14"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "30s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/api/health"
+
+[mounts]
+  source = "redpen_photos"
+  destination = "/data"
+  snapshot_retention = 14
+
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1

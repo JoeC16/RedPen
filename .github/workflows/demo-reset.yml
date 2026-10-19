@@ -1,0 +1,35 @@
+name: Reset demo data
+
+# Run by hand before a demo (Actions → Reset demo data → Run workflow). Replaces
+# everything on the demo site with a fresh demo dataset dated to today, then
+# restarts the app. Refused by the app unless ALLOW_DEMO_SEED=true (fly.toml),
+# so it can never wipe a real deployment.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type RESET to confirm. Everything on the demo site is replaced.
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  reset:
+    if: inputs.confirm == 'RESET'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      APP: ${{ vars.FLY_APP || 'redpen-demo' }}
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
+      - name: Reseed
+        # Absolute paths: an SSH session does not start in /app.
+        run: flyctl ssh console -a "$APP" -C "env MIGRATIONS_DIR=/app/db/migrations node /app/scripts/demo-reset.mjs"
+      - name: Restart (the reset recreates the job queue under the running worker)
+        run: flyctl apps restart "$APP"
+      - name: Check the site
+        run: |
+          for i in $(seq 1 30); do curl -sf "https://$APP.fly.dev/api/health" | grep -q '"ok"' && exit 0; sleep 10; done
+          echo "::error::not healthy after reset"; exit 1

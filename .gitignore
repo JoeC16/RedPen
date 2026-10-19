@@ -12,3 +12,4 @@ playwright-report/
 eval/reports/latest-demo.json
 .storage/
 playwright-report-demo/
+dist-scripts/

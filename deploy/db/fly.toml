@@ -1,0 +1,24 @@
+# Red Pen database (PostgreSQL 16) on Fly.io, London. Private network only:
+# no [http_service] and deployed with --no-public-ips, so it is reachable only
+# by apps in the same Fly organisation at <app>.internal:5432.
+# First-time setup: .github/workflows/fly-setup.yml (see docs/deploy.md).
+app = "redpen-db"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  # A subdirectory, because a fresh volume's root holds lost+found.
+  PGDATA = "/var/lib/postgresql/data/pgdata"
+
+[mounts]
+  source = "redpen_pgdata"
+  destination = "/var/lib/postgresql/data"
+  # Fly snapshots volumes daily; keep two weeks.
+  snapshot_retention = 14
+
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1

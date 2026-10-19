@@ -1,0 +1,39 @@
+name: Fly.io first-time setup
+
+# Run once by hand (Actions → Fly.io first-time setup → Run workflow) after
+# adding the FLY_API_TOKEN repository secret. Creates the database and web apps
+# in London with generated secrets, deploys both, and checks the site is up.
+# Safe to re-run. See docs/deploy.md.
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: Web app name (becomes https://<name>.fly.dev)
+        default: redpen-demo
+      db_app:
+        description: Database app name
+        default: redpen-db
+      org:
+        description: Fly.io organisation slug
+        default: personal
+      region:
+        description: Region (lhr is London)
+        default: lhr
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
+      - run: deploy/fly-setup.sh
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          APP: ${{ inputs.app }}
+          DB_APP: ${{ inputs.db_app }}
+          ORG: ${{ inputs.org }}
+          REGION: ${{ inputs.region }}
