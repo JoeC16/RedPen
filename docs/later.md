@@ -16,3 +16,8 @@ Ideas outside v1 scope. Not to be built until agreed.
 - Download dashboard figures and the audit log as CSV.
 - Offboarding a school completely, including staff accounts, after the data is deleted.
 - Charts for the weekly trend (v1 uses a table with bars).
+- EU AI route: a Bedrock provider (London endpoint, EU routing) behind the existing MarkingProvider interface, selected by an environment variable. Required before real pupil data; read AWS's own Bedrock data terms first.
+- Ask Anthropic for zero data retention, and confirm in writing that it covers inline images.
+- Confirm with Anthropic whether a teacher-only tool counts as a "product serving minors" under its usage policy.
+- Read the blocked sources (gov.uk, ICO, legislation.gov.uk, DE NI, privacy.claude.com, trust.anthropic.com) and settle the open claims.
+- Legal review of the DPA and DPIA templates; Welsh or Irish language versions if a buyer needs them.

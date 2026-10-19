@@ -14,6 +14,7 @@ export function navFor(role: UserRole): NavItem[] {
       return [
         { href: "/", label: "Home" },
         { href: "/classes", label: "My classes" },
+        { href: "/trust", label: "Trust centre" },
       ];
     case "school_admin":
       return [
@@ -22,6 +23,7 @@ export function navFor(role: UserRole): NavItem[] {
         { href: "/classes", label: "Classes" },
         { href: "/audit", label: "Audit log" },
         { href: "/data", label: "School data" },
+        { href: "/trust", label: "Trust centre" },
       ];
     case "authority_admin":
       return [
@@ -31,6 +33,7 @@ export function navFor(role: UserRole): NavItem[] {
         { href: "/audit", label: "Audit log" },
         { href: "/data", label: "School data" },
         { href: "/settings", label: "Settings" },
+        { href: "/trust", label: "Trust centre" },
       ];
   }
 }
