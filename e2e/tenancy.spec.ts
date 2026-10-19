@@ -3,6 +3,11 @@ import { IDS, signIn } from "./helpers";
 
 test("a teacher cannot open another school's class by URL or API", async ({ page }) => {
   await signIn(page, "northgateTeacher1");
+  // A real 404 status, not just a "not found" page sent with 200 (which a
+  // route-level loading screen would cause by streaming the response early).
+  for (const path of [`/classes/${IDS.classRiversideSci}`, `/assignments/${IDS.assignmentRiversideSci}`, `/dashboard`]) {
+    expect((await page.goto(path))?.status(), path).toBe(404);
+  }
   await page.goto(`/classes/${IDS.classRiversideSci}`);
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
   for (const path of [`/api/classes/${IDS.classRiversideSci}`, `/api/classes/${IDS.classRiversideSci}/pupils`, `/api/schools/${IDS.schoolRiverside}`]) {

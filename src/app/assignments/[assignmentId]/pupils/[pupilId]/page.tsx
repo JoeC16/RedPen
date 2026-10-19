@@ -201,7 +201,7 @@ export default async function ReviewPage({
               </p>
               {v.run.flags.length > 0 ? (
                 <>
-                  <p className="mt-2 font-medium">Check these {v.run.flags.length === 1 ? "point" : `${v.run.flags.length} points`}:</p>
+                  <p className="mt-2 font-medium">{v.run.flags.length === 1 ? "Check this point:" : `Check these ${v.run.flags.length} points:`}</p>
                   <ul className="mt-1 list-disc pl-5">
                     {v.run.flags.map((f) => <li key={f}>{f}</li>)}
                   </ul>
