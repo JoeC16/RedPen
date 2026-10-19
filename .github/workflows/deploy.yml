@@ -31,7 +31,7 @@ jobs:
         id: ready
         run: |
           if [ -z "$FLY_API_TOKEN" ]; then echo "FLY_API_TOKEN is not set; nothing to deploy."; echo "go=false" >> "$GITHUB_OUTPUT"; else echo "go=true" >> "$GITHUB_OUTPUT"; fi
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         if: steps.ready.outputs.go == 'true'
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
