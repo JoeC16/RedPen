@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:demo": "playwright test -c playwright.demo.config.ts",
     "eval": "tsx --env-file-if-exists=.env scripts/eval.ts",
     "worker": "tsx --env-file-if-exists=.env scripts/worker.ts",
     "docs:claims": "tsx scripts/claims-doc.ts"
@@ -35,6 +36,7 @@
     "zod": "4.1.12"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.56.1",
     "@tailwindcss/postcss": "4.1.14",
     "@types/node": "22.20.5",
