@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { EVAL_CASES } from "../../../eval/cases";
+import { demoResultFor } from "../demo/marker";
 import type { MarkingProvider, MarkingRequest, ProviderResponse } from "./provider";
 import { PROMPT_VERSION } from "./prompt";
 import type { MarkingResult } from "./result-schema";
@@ -17,7 +18,8 @@ const FIXED = new Map<string, MarkingResult>(
 
 /**
  * Demo mode (MARKING_MODE=demo, or no API key): realistic fixed results for the
- * demo pupils so a demo never depends on the network. Any other work gets a
+ * evaluation examples and the seeded demo pupils (src/server/demo), so a demo
+ * never depends on the network. Any other work gets a
  * clearly labelled placeholder, never a pretend mark.
  */
 export class DemoProvider implements MarkingProvider {
@@ -26,7 +28,10 @@ export class DemoProvider implements MarkingProvider {
   async mark(req: MarkingRequest): Promise<ProviderResponse> {
     const started = Date.now();
     const photos = req.images?.length ?? 0;
-    const fixed = photos ? undefined : FIXED.get(demoKey(req.workType, req.schemeText, req.pupilText));
+    // The evaluation examples first, then work built from the seeded demo answer banks.
+    const fixed = photos
+      ? undefined
+      : (FIXED.get(demoKey(req.workType, req.schemeText, req.pupilText)) ?? demoResultFor(req.workType, req.schemeText, req.pupilText) ?? undefined);
     const raw: MarkingResult = fixed ?? {
       transcription: photos ? `Demo mode: the ${photos === 1 ? "photo was" : `${photos} photos were`} not read. With the live AI, the working is typed out here, line by line, next to the photo.` : "",
       criteria: req.criteria.map((c) => ({
