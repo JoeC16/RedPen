@@ -11,7 +11,8 @@ export function PageTitle({ children, description }: { children: ReactNode; desc
 
 export function Table({ caption, head, children }: { caption: string; head: string[]; children: ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
+    // Focusable so keyboard users can scroll a wide table sideways (WCAG 2.1.1).
+    <div tabIndex={0} role="region" aria-label={caption} className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
       <table className="w-full text-left text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead className="bg-gray-50 text-gray-700 dark:bg-gray-900 dark:text-gray-200">

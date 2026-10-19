@@ -22,7 +22,8 @@ Built:
 - **Accessibility:**
   - automated axe checks (WCAG 2.2 A and AA) on every main page, for every role, in light and dark, in the e2e suite;
   - a manual axe run on pages with full demo data (flagged review, mixed queue, populated dashboards);
-  - a keyboard tab-order check on the review screen.
+  - a keyboard tab-order check on the review screen;
+  - a pass at phone width. CI found that a wide audit log table scrolled sideways but couldn't be reached by keyboard. Tables are now focusable, labelled regions, and the narrow pass makes this check independent of how much data a page has.
 - **Performance, class of 30:**
 
   | What | Before | After |
