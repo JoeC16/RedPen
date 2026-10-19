@@ -71,6 +71,17 @@ One line per significant decision and the reason.
 - CI runs the eval harness on every PR. It calls the live AI only when `src/server/marking/` or `eval/` changes, to keep CI cost down.
 - Playwright resets the e2e database in the web server command, before the app starts, so the queue worker never connects to a half-reset schema. It never reuses an already-running server.
 
+## Step 6 (2026-10-19)
+
+- Founder: the direct Anthropic API offers no UK or EU processing, so keep it for demos with invented data, and add an EU route (Claude on Amazon Bedrock, London endpoint with EU routing) before any real pupil data. The trust centre states the region for the route in use.
+- One claims register in code. The pages, the documents and `docs/claims.md` all come from it, so a statement cannot be changed in one place and not the others.
+- The product shows only confirmed claims, enforced by `confirmed()` throwing. Unconfirmed items are shown only as a neutral question.
+- Our own claims cite the code and tests that make them true, and a test checks the files exist.
+- The trust centre and documents are public pages, not files in the repo. DPOs can read them without an account, and the content always matches the running service. Templates leave the school's own judgements (likelihood, severity, lawful basis, sign-off) blank instead of guessing them.
+- Company facts are environment variables that show a visible placeholder until set. We never invent a company number, ICO registration or hosting region.
+- The accessibility statement says "partially compliant" until an independent audit is done.
+- The default model must not be one of Anthropic's "Covered Models" (30-day retention required). This is noted against the claim.
+
 ## Step 5 (2026-10-18)
 
 - Founder: retention deletes pupil work, photos, transcriptions, evidence, comments and feedback, and keeps marks, timestamps and AI-versus-teacher numbers linked only to the pupil code.

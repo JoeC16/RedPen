@@ -1,5 +1,63 @@
 # Progress
 
+## Step 6: Trust centre and documents (done; UK guidance not yet checked)
+
+Built:
+
+- **Claims register** (`src/content/claims.ts`) with every statement the product makes about data handling:
+  - Statements about our own system point at the code and tests that make them true. A test fails if any cited file is missing.
+  - Statements about Anthropic quote the live source with the date read (2026-10-19).
+  - Anything not yet checked is marked unconfirmed, with a neutrally worded question.
+  - `docs/claims.md` is generated from it (`npm run docs:claims`), and a test fails if the two differ.
+- **The product can only show confirmed claims.** Pages fetch text through `confirmed(id)`, which throws for an unknown or unconfirmed claim. Unconfirmed items appear only as their open question, in a "Still being checked" box.
+- **Trust centre** (`/trust`), public so data protection officers can read it before buying, and linked from the sign-in page and every role's menu. It covers:
+  - what goes to the AI and what never does, who can see what, and retention (the authority's own setting when signed in);
+  - where data is stored, the AI provider, security, and the guidance we follow;
+  - documents and contact details.
+- **Documents**, each a printable page (Save as PDF; A4 checked):
+  - the data sheet for data protection officers;
+  - the impact assessment template, with ten risks and our measures pre-filled, and likelihood, severity and sign-off left blank for the school;
+  - the data processing agreement template;
+  - the sub-processor list;
+  - the accessibility statement. It says the service is "partially compliant" and lists the known gaps.
+  - When an authority's own user is signed in, its name and retention setting are filled in.
+- **Company details** come from environment variables (`COMPANY_NAME`, `ICO_REGISTRATION_NUMBER`, `HOSTING_REGION`, `DPA_SIGNATORY`, `CYBER_INSURANCE` and others). Until set, each shows as a highlighted "[To be confirmed: …]".
+
+What the sources say (details in `docs/claims.md`):
+- **Confirmed for Anthropic:**
+  - no training on API content;
+  - prompts and outputs not retained by default, except for named "Covered Models" (our default model is not one);
+  - flagged requests may be kept for up to 2 years;
+  - inline images are deleted after the request;
+  - zero data retention is available by arrangement;
+  - the processing agreement is part of the terms, with the ICO's UK transfer addendum;
+  - ISO 27001, ISO 42001 and SOC 2;
+  - its guidelines on minors.
+- **The direct API has no UK or EU processing option.** Inference runs globally or in the US, and data at rest is in the US. Founder decision: keep the direct API for demos with invented data, and move to an EU route (Bedrock) before real pupil data. The trust centre and documents say this.
+
+Tests: 3 new Playwright tests:
+- the public trust centre states only confirmed claims, and none of the unconfirmed statements appears;
+- every document renders, and none contains an unconfirmed statement;
+- an admin's documents are filled in with their authority's details.
+
+Also 6 new unit tests on the register. Totals: 315 Vitest tests, 24 Playwright tests.
+
+Also fixed a step-5 test that assumed approvals made 38 hours earlier fall in the current week; it failed on Monday mornings.
+
+Checked by hand in a browser (light and dark) and as a printed PDF: the trust centre, the impact assessment, the data sheet and the sub-processor list. Fixes from this: detail tables printed an empty header row, and the retention sentence repeated itself.
+
+Not checked:
+- **UK guidance.** gov.uk, ico.org.uk, legislation.gov.uk and the Northern Ireland education sites are blocked by this environment's network policy. Six questions are open:
+  - the DfE generative AI policy paper;
+  - the DfE product safety standards;
+  - the DE NI circular;
+  - whether the Children's code applies to us;
+  - whether a DPIA is mandatory;
+  - automated decision-making under the Data (Use and Access) Act.
+  None of them is claimed anywhere.
+- **Two Anthropic pages:** the privacy centre article on standard retention, and Anthropic's own sub-processor list (privacy.claude.com and trust.anthropic.com are blocked).
+- **Legal review.** The agreement and DPIA templates have had none.
+
 ## Step 5: Oversight (done)
 
 Built:
