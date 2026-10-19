@@ -1,0 +1,47 @@
+name: Deploy
+
+# Deploys the web app to Fly.io after CI passes on main. Does nothing until the
+# FLY_API_TOKEN secret is set. The app name comes from the FLY_APP repository
+# variable (default redpen-demo). The database app is deployed only by the
+# first-time setup, or by hand: fly deploy deploy/db --config deploy/db/fly.toml
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      APP: ${{ vars.FLY_APP || 'redpen-demo' }}
+    steps:
+      - name: Skip until Fly.io is set up
+        id: ready
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then echo "FLY_API_TOKEN is not set; nothing to deploy."; echo "go=false" >> "$GITHUB_OUTPUT"; else echo "go=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v5
+        if: steps.ready.outputs.go == 'true'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
+        if: steps.ready.outputs.go == 'true'
+      - name: Deploy (migrations run first, as the release command)
+        if: steps.ready.outputs.go == 'true'
+        run: flyctl deploy . --config fly.toml -a "$APP" --ha=false --remote-only -y
+      - name: Check the live site
+        if: steps.ready.outputs.go == 'true'
+        run: |
+          for i in $(seq 1 30); do curl -sf "https://$APP.fly.dev/api/health" | grep -q '"ok"' && exit 0; sleep 10; done
+          echo "::error::https://$APP.fly.dev/api/health is not healthy after deploy"; exit 1

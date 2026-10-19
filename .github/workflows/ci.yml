@@ -153,17 +153,25 @@ jobs:
         run: docker build -t redpen:ci .
       - name: Create database roles and databases
         run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f db/bootstrap.sql
-      - name: Start the image as a demo deployment
+      - name: Migrate the way Fly's release_command does
+        run: docker run --rm --network host -e DATABASE_ADMIN_URL="$ADMIN_URL" redpen:ci node scripts/migrate.ts | tee /tmp/migrate.log && grep -q "migrations up to date" /tmp/migrate.log
+      - name: Start the image as a demo deployment, with a root-owned volume as Fly mounts it
         run: |
-          docker run -d --name app --network host \
+          sudo mkdir -p /tmp/flyvol && sudo chown root:root /tmp/flyvol
+          docker run -d --name app --network host -v /tmp/flyvol:/data \
             -e DATABASE_URL="$APP_URL" -e DATABASE_ADMIN_URL="$ADMIN_URL" \
             -e PUPIL_NAME_KEY="$(openssl rand -base64 32)" -e AUTH_SECRET="$(openssl rand -base64 32)" \
             -e FILE_URL_SECRET="$(openssl rand -base64 32)" -e AUTH_TRUST_HOST=true -e AUTH_URL=http://localhost:3000 \
-            -e RUN_MIGRATIONS_ON_START=true -e ALLOW_DEMO_SEED=true -e SEED_DEMO_IF_EMPTY=true -e MARKING_MODE=demo \
+            -e STORAGE_DRIVER=local -e STORAGE_LOCAL_DIR=/data/photos -e CLIENT_IP_HEADER=fly-client-ip \
+            -e ALLOW_DEMO_SEED=true -e SEED_DEMO_IF_EMPTY=true -e MARKING_MODE=demo \
             redpen:ci
           for i in $(seq 1 60); do curl -sf http://localhost:3000/api/health && break; sleep 2; done
           curl -sf http://localhost:3000/api/health
           docker logs app 2>&1 | tail -20
+      - name: The server runs as the app user, not root, and can write to the volume
+        run: |
+          test "$(docker exec app stat -c %u /proc/1)" != "0"
+          test "$(stat -c %U /tmp/flyvol/photos)" != "root"
       - name: Pages are served, security headers are set, and the demo data is there
         run: |
           curl -sf http://localhost:3000/trust | grep -q "Trust centre"
