@@ -1,15 +1,11 @@
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { recordAuthEvent } from "@/server/audit";
+import { clientIp } from "@/server/auth/client-ip";
 import { attemptLogin } from "@/server/auth/login";
 
 class RateLimited extends CredentialsSignin {
   code = "rate_limited";
-}
-
-function clientIp(request: Request): string {
-  // Behind the host's proxy the left-most X-Forwarded-For entry is the client.
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "";
 }
 
 const maxAgeHours = Number(process.env.SESSION_MAX_AGE_HOURS ?? 8);
@@ -22,7 +18,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Credentials({
       credentials: { email: {}, password: {} },
       async authorize(credentials, request) {
-        const result = await attemptLogin(credentials, clientIp(request));
+        const result = await attemptLogin(credentials, clientIp(request.headers));
         if (!result.ok) {
           if (result.reason === "rate_limited") throw new RateLimited();
           return null;
