@@ -126,10 +126,58 @@ jobs:
       - name: Audit dependencies for known vulnerabilities
         run: npm audit --audit-level=high
 
+  # The production image as a demo deployment runs it: migrates and seeds itself
+  # on first start, serves pages, and its data survives a backup and restore.
   docker:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      PGPASSWORD: postgres
+      ADMIN_URL: postgres://redpen_owner:redpen_owner_dev@localhost:5432/redpen
+      APP_URL: postgres://redpen_app:redpen_app_dev@localhost:5432/redpen
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
       - name: Build production image
         run: docker build -t redpen:ci .
+      - name: Create database roles and databases
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f db/bootstrap.sql
+      - name: Start the image as a demo deployment
+        run: |
+          docker run -d --name app --network host \
+            -e DATABASE_URL="$APP_URL" -e DATABASE_ADMIN_URL="$ADMIN_URL" \
+            -e PUPIL_NAME_KEY="$(openssl rand -base64 32)" -e AUTH_SECRET="$(openssl rand -base64 32)" \
+            -e FILE_URL_SECRET="$(openssl rand -base64 32)" -e AUTH_TRUST_HOST=true -e AUTH_URL=http://localhost:3000 \
+            -e RUN_MIGRATIONS_ON_START=true -e ALLOW_DEMO_SEED=true -e SEED_DEMO_IF_EMPTY=true -e MARKING_MODE=demo \
+            redpen:ci
+          for i in $(seq 1 60); do curl -sf http://localhost:3000/api/health && break; sleep 2; done
+          curl -sf http://localhost:3000/api/health
+          docker logs app 2>&1 | tail -20
+      - name: Pages are served, security headers are set, and the demo data is there
+        run: |
+          curl -sf http://localhost:3000/trust | grep -q "Trust centre"
+          curl -sf -o /dev/null -w "%{http_code}\n" http://localhost:3000/login | grep -q 200
+          curl -sI http://localhost:3000/login | grep -qi "strict-transport-security"
+          test "$(psql "$ADMIN_URL" -tAc 'select count(*) from submission')" -gt 500
+      - run: npm ci
+      - name: Backup and tested restore
+        run: |
+          scripts/db-backup.sh /tmp/redpen.dump
+          psql -h localhost -U postgres -c "create database redpen_restored owner redpen_owner"
+          DATABASE_ADMIN_URL=postgres://redpen_owner:redpen_owner_dev@localhost:5432/redpen_restored scripts/db-restore.sh /tmp/redpen.dump
+          RESTORED_ADMIN_URL=postgres://redpen_owner:redpen_owner_dev@localhost:5432/redpen_restored \
+          RESTORED_APP_URL=postgres://redpen_app:redpen_app_dev@localhost:5432/redpen_restored \
+            npx tsx scripts/verify-restore.ts
+        env:
+          DATABASE_ADMIN_URL: postgres://redpen_owner:redpen_owner_dev@localhost:5432/redpen
