@@ -26,7 +26,9 @@ COPY --from=build --chown=app:app /app/dist-scripts/demo-reset.mjs /app/scripts/
 COPY --chown=app:app docker-entrypoint.sh ./
 # Only used with STORAGE_DRIVER=local (development, or a mounted volume).
 RUN mkdir -p /app/.storage && chown app:app /app/.storage
-USER app
+# No USER line: the entrypoint starts as root only to prepare a mounted volume,
+# then drops to the app user before running anything else.
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["node", "server.js"]

@@ -2,7 +2,8 @@
 // into the production image as scripts/demo-reset.mjs (see Dockerfile) and
 // refused unless ALLOW_DEMO_SEED=true. Restart the app afterwards: the reset
 // recreates the job queue's schema under the running worker.
-//   fly ssh console -C "node scripts/demo-reset.mjs" && fly apps restart
+//   fly ssh console -C "env MIGRATIONS_DIR=/app/db/migrations node /app/scripts/demo-reset.mjs" && fly apps restart <app>
+// (or the "Reset demo data" GitHub workflow)
 import { seedDemo } from "./lib/demo-seed";
 import { seedFoundation } from "./lib/fixtures";
 import { assertNonProduction, requireEnv } from "./lib/guard";
