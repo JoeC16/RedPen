@@ -65,6 +65,14 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+      - name: Demo rehearsal (docs/demo-script.md on the full demo dataset)
+        run: npm run test:demo
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-demo
+          path: playwright-report-demo/
+          retention-days: 7
 
   # The evaluation harness. Runs against the live AI when the prompt, the
   # marking engine or the eval cases change and the ANTHROPIC_API_KEY secret is
