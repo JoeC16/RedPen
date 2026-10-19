@@ -40,11 +40,11 @@ export function setEnqueueForTests(fn: Enqueue | undefined) {
 
 export async function enqueueMarking(jobs: Omit<MarkJob, "jobId">[]): Promise<void> {
   if (enqueueOverride) return enqueueOverride(jobs);
+  if (!jobs.length) return;
   const b = await boss();
-  for (const data of jobs) {
-    // One live job per submission, however many times "Run marking" is pressed.
-    await b.send(MARKING_QUEUE, data, { singletonKey: data.submissionId });
-  }
+  // One insert for the whole class. One live job per submission, however many
+  // times "Run marking" is pressed: duplicates of a singleton key are skipped.
+  await b.insert(MARKING_QUEUE, jobs.map((data) => ({ data, singletonKey: data.submissionId })));
 }
 
 /** Start the worker in this process. Several jobs run at once; one failure never blocks the rest. */
@@ -63,7 +63,10 @@ export async function startMarkingWorker(): Promise<void> {
     }
   }
   const concurrency = Number(process.env.MARKING_CONCURRENCY ?? 4);
-  await b.work<Omit<MarkJob, "jobId">>(MARKING_QUEUE, { batchSize: 1, localConcurrency: concurrency }, async ([job]) => {
+  // How long an idle worker waits before looking for jobs again. pg-boss's 2s
+  // default made a class of 30 take 16s in demo mode, where marking is instant.
+  const poll = Math.max(0.5, Number(process.env.MARKING_POLL_SECONDS ?? 1));
+  await b.work<Omit<MarkJob, "jobId">>(MARKING_QUEUE, { batchSize: 1, localConcurrency: concurrency, pollingIntervalSeconds: poll }, async ([job]) => {
     if (!job) return;
     await runMarkingJob({ ...job.data, jobId: job.id }, { finalAttempt: job.retryCount >= RETRY_LIMIT });
   });

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { Empty, linkClass, PageTitle } from "@/components/ui";
 import { exportAssignment } from "@/server/dal/marking";
-import { ownSchoolName } from "@/server/dal/schools";
+import { getAuthority, ownSchoolName } from "@/server/dal/schools";
 import { requirePageUser } from "@/server/session";
 import { PrintButton } from "./print-button";
 
@@ -30,7 +30,7 @@ export default async function FeedbackSheetsPage({
   if (!data) notFound();
   const { pupil } = await searchParams;
   const { assignment: a } = data;
-  const school = await ownSchoolName(user);
+  const [school, authority] = await Promise.all([ownSchoolName(user), getAuthority(user)]);
   const sheets = data.rows.filter((r) => r.state === "approved" && (!pupil || r.pupilId === pupil));
 
   return (
@@ -52,7 +52,11 @@ export default async function FeedbackSheetsPage({
           className={`mb-8 rounded border border-gray-300 p-8 print:mb-0 print:rounded-none print:border-0 print:p-0 dark:border-gray-700 ${i < sheets.length - 1 ? "break-after-page" : ""}`}
         >
           <header className="mb-6 border-b border-gray-300 pb-4 dark:border-gray-700">
-            <p className="text-sm text-gray-700 dark:text-gray-300">{school} · {a.className}</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              {school} · {a.className}
+              {/* Printed sheets lose the page header, so demo data is marked on the sheet itself. */}
+              {authority?.isDemo ? <span className="ml-2 rounded border border-gray-500 px-1 text-xs">Demo data: invented pupil</span> : null}
+            </p>
             <h2 className="text-xl font-semibold">{a.title}</h2>
             <p className="mt-2">
               <span className="font-mono">{s.code}</span>

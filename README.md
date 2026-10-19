@@ -12,6 +12,7 @@ The build brief is [`CLAUDE.md`](CLAUDE.md). Progress is in [`docs/progress.md`]
 - Step 2 (teacher core, no AI): classes, pupil import, assignments with mark schemes, typed work, the review queue and screen, manual marking, approval one pupil at a time, reopening, and CSV export.
 - Step 3 (marking engine): AI marking through Claude or a built-in demo provider, background jobs, redaction, prompt-injection checks, rate limits and the evaluation harness.
 - Step 4 (photos): photographed work, uploaded per pupil or in bulk by pupil code, with location data stripped and a names-cropped confirmation. The AI transcribes the photos and the transcription is shown next to them.
+- Step 7 (demo hardening): a believable demo dataset built from real rows, demo-mode marking that works for every seeded pupil, loading and error pages, automated accessibility checks on every page in both themes, faster marking for a class of 30, and a rehearsed 15-minute demo script.
 - Step 6 (trust): a public trust centre at `/trust` and printable documents (data sheet, DPIA and DPA templates, sub-processor list, accessibility statement), all generated from one claims register (`docs/claims.md`) that shows only claims checked against our code or a dated primary source.
 - Step 5 (oversight): school and authority dashboards from aggregates (small groups hidden), the AI agreement metric, estimated time saved, hourly retention that deletes pupil work and keeps the marks, early deletion by teachers, two-admin deletion of a school's data, and audit log details.
 
@@ -43,7 +44,7 @@ npm run db:seed
 npm run dev                      # http://localhost:3000
 ```
 
-`npm run db:reset` drops, migrates and reseeds the dev database.
+`npm run db:reset` drops, migrates and reseeds the dev database with the full demo dataset; add `-- --foundation-only` for just the small test fixture. Dates are relative to today, so reset before a demo.
 
 If you use your own Postgres instead of Docker, run `db/bootstrap.sql` once as a superuser.
 
@@ -94,14 +95,24 @@ Every account uses the password `redpen-demo-2026`. All people, schools and auth
 | School admin / teacher | `admin@other-school.test`, `teacher@other-school.test` | The second authority's school |
 | Disabled teacher | `former.teacher@northgate.test` | Cannot sign in |
 
-The fuller demo dataset (about 20 classes, several hundred submissions, six weeks of history) comes in build step 7.
+The demo dataset adds more teachers to the Demo Education Authority: 12 active teachers, 22 classes across maths, science and English, about 500 pupils, and about 870 pieces of work over six weeks, in every state. Useful extra logins:
+
+| Role | Email | Sees |
+| --- | --- | --- |
+| Teacher | `a.byrne@northgate.test` | 10M1 Maths, 30 pupils: "Algebra and area" is unmarked, ready to mark live (see `docs/demo-script.md`) |
+| Teacher | `o.mcaleer@northgate.test` | 9E1 and 10E2 English: essays and short answers with draft AI marks to review |
+| Teacher | `e.gallagher@riverside.test` | Riverside maths classes |
+| Teacher | `s.kearney@hillcrest.test` | Hillcrest maths: a school that joined recently and marks more by hand |
+
+The 15-minute demo is in `docs/demo-script.md`; `npm run test:demo` rehearses it in a browser.
 
 ## Tests
 
 ```sh
 npm run typecheck
 npm test            # Vitest: unit + integration against Postgres (resets the redpen_test database)
-npm run build && npm run test:e2e   # Playwright against a production build (resets redpen_e2e)
+npm run build && npm run test:e2e   # Playwright against a production build (resets redpen_e2e), incl. axe accessibility checks
+npm run test:demo                   # rehearses docs/demo-script.md on the full demo dataset (redpen_e2e_demo)
 ```
 
 CI (`.github/workflows/ci.yml`) runs all of these on every push, plus the tenancy route tests with row-level security bypassed, `npm audit`, and a Docker image build.

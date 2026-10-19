@@ -71,6 +71,16 @@ One line per significant decision and the reason.
 - CI runs the eval harness on every PR. It calls the live AI only when `src/server/marking/` or `eval/` changes, to keep CI cost down.
 - Playwright resets the e2e database in the web server command, before the app starts, so the queue worker never connects to a half-reset schema. It never reuses an already-running server.
 
+## Step 7 (2026-10-19)
+
+- The demo data and DemoProvider share one set of answer banks. The seed builds pupil work from them and the provider marks it back, so live marking in a demo is realistic and never depends on the network. Work not built from the banks still gets an honest placeholder.
+- The seed's dates are relative to the moment it runs, so "the last six weeks" always has data. Reset the demo the morning of a meeting.
+- Seeded AI runs are labelled with the model `demo-seed`, and their token counts are invented. The cost tile on demo dashboards is therefore illustrative; the demo script says so.
+- The full dataset stays out of the main test fixtures, which keep their small, exact data. It has its own scratch-database test and its own rehearsal (`npm run test:demo`, own database).
+- Marking worker polls every 1 s (`MARKING_POLL_SECONDS`), and a class is queued in one bulk insert. pg-boss's burst mode needs batches larger than one job, and its notify mode is early access, so neither is used.
+- No route-level `loading.tsx`. It makes Next.js stream responses before the page runs, so `notFound()` returns HTTP 200. A real 404 for another school's URL matters more than a loading spinner on pages that take about 100 ms.
+- `@axe-core/playwright` 4.13.0 is pinned, not 4.14.0, which was only four days old.
+
 ## Step 6 (2026-10-19)
 
 - Founder: the direct Anthropic API offers no UK or EU processing, so keep it for demos with invented data, and add an EU route (Claude on Amazon Bedrock, London endpoint with EU routing) before any real pupil data. The trust centre states the region for the route in use.

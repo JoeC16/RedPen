@@ -35,7 +35,7 @@ export function DocFrame({ title, template, children }: { title: string; templat
 /** Label and value rows, for the details tables in documents (no empty header row). */
 export function KeyTable({ caption, rows }: { caption: string; rows: [string, ReactNode][] }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
+    <div tabIndex={0} role="region" aria-label={caption} className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
       <table className="w-full text-left text-sm">
         <caption className="sr-only">{caption}</caption>
         <tbody className="divide-y divide-gray-200 dark:divide-gray-800">

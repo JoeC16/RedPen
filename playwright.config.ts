@@ -30,7 +30,7 @@ export default defineConfig({
   },
   projects: [
     { name: "chromium-light", use: { ...devices["Desktop Chrome"], colorScheme: "light" } },
-    { name: "chromium-dark", use: { ...devices["Desktop Chrome"], colorScheme: "dark" }, testMatch: /smoke/ },
+    { name: "chromium-dark", use: { ...devices["Desktop Chrome"], colorScheme: "dark" }, testMatch: /smoke|accessibility/ },
   ],
   webServer: {
     // Reset the database first, then start the app, so the worker never sees a half-reset schema.
