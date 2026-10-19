@@ -1,5 +1,58 @@
 # Progress
 
+## Step 7: Demo hardening (done)
+
+Built:
+
+- **Demo dataset** (`scripts/lib/demo-seed.ts`, run by `npm run db:seed` and `npm run db:reset`). It sits on top of the test fixture, adding:
+  - 12 active teachers across three schools, 22 classes in maths, science and English (Years 8 to 11), about 500 pupils, and about 870 pieces of work over six weeks;
+  - work in every state: unmarked, AI draft awaiting review, flagged, failed, absent, approved by hand or from the AI;
+  - teacher changes to AI marks, mostly small, with wider disagreement on borderline essay bands;
+  - work older than the retention period already deleted, as the hourly job would have done.
+
+  The dates count back from the day it runs. Every figure on the dashboards is computed from these rows. Seeded run metadata uses the model name `demo-seed`, so it can't be mistaken for a live run.
+- **Answer banks** (`src/server/demo/templates.ts`): seven CCEA-style assignments (three use the evaluation schemes). Each question has several invented pupil answers, each carrying the mark, evidence and comment a careful marker would give, and sometimes a flag or a different teacher mark.
+  - The seed builds pupils' work from these answers.
+  - DemoProvider marks the same work back from them, so pressing **Run AI marking** on the seeded class of 30 gives realistic results for every pupil, not placeholders. Work not built from the banks still gets an honest placeholder.
+- **Live demo class:** Aoife Byrne's 10M1, "Algebra and area", 30 pupils, unmarked.
+- **Error and loading states:**
+  - an error page that shows a reference but no details, and says nothing saved has been lost;
+  - a last-resort page for when the layout itself fails.
+  - No route-level loading screen. I added one, and the tests caught that it made Next.js stream every page early: not-found pages, including another school's, returned 200 instead of 404, and one upload form was used before it was ready. Pages load in under about 100 ms, and marking has its own progress display. A test now checks that cross-school URLs return a real 404 status.
+- **Accessibility:**
+  - automated axe checks (WCAG 2.2 A and AA) on every main page, for every role, in light and dark, in the e2e suite;
+  - a manual axe run on pages with full demo data (flagged review, mixed queue, populated dashboards);
+  - a keyboard tab-order check on the review screen.
+- **Performance, class of 30:**
+
+  | What | Before | After |
+  | --- | --- | --- |
+  | Queue page | | 50–100 ms |
+  | Review page | | 45–100 ms |
+  | Approve and go to next pupil | | about 200 ms |
+  | CSV export | | about 140 ms |
+  | Dashboard, warm (full dataset) | | about 110 ms |
+  | Marking 30 in demo mode | 16 s | 7.5–8.5 s |
+  | Queuing a class | 1.2 s | 0.6 s |
+
+  Two fixes got there: the worker now polls every 1 s instead of every 2 s (`MARKING_POLL_SECONDS`), and the whole class is queued in one insert.
+- **Demo script** (`docs/demo-script.md`), about 15 minutes: teacher, school leader, authority, trust centre. It includes what to say about the open questions, what to do if something goes wrong, and likely questions.
+- **`npm run test:demo`** rehearses the script step by step in a browser against the full dataset, in its own database, and runs in CI.
+
+Fixes from the click-through:
+- With one flag, the AI panel read "Check these point". It now reads "Check this point" (and "Check these 3 points").
+- Demo pupil codes like `NG10E215` were hard to read. They are now `NG10E2-15`.
+- The seed dated "this week's" work in the future when run early on a Monday, so it skipped it. Dates are now counted back from now.
+- Printed feedback sheets lost the "Demo data" marker, because the page header doesn't print. The sheet itself now carries it.
+- The first version of the seed had teachers agreeing with the AI within one mark 100% of the time, which nobody would believe. It now has realistic disagreement.
+
+Tests: 343 Vitest tests, including a scratch-database test of the whole demo seed and a check that every answer bank marks back consistently. The Playwright suite now includes 8 accessibility tests. The demo rehearsal passes.
+
+Not checked:
+- Screen reader testing (NVDA, JAWS, VoiceOver). Automated checks find only part of the problems; the accessibility statement says so.
+- The error page's appearance with a real server error. It is typechecked, but I had no safe way to trigger one in the production build.
+- Live AI timings. Demo mode only.
+
 ## Step 6: Trust centre and documents (done; UK guidance not yet checked)
 
 Built:
