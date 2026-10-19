@@ -129,7 +129,8 @@ describe("dashboards", () => {
     expect(hc.byType.short.scripts).toBe(6);
     expect(hc.byType.essay.scripts).toBe(0);
     expect(hc.weekly.at(-1)).toMatchObject({ activeTeachers: 1 });
-    expect(hc.weekly.at(-1)!.approvals).toBe(6);
+    // Approved 38 hours ago: this week or last, depending on the day the test runs.
+    expect(hc.weekly.reduce((n, w) => n + (typeof w.approvals === "number" ? w.approvals : 0), 0)).toBe(6);
     expect(d.weeks).toBe(6);
     expect(hc.weekly).toHaveLength(6);
   });
