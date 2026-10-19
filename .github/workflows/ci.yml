@@ -59,7 +59,7 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: End-to-end tests (Playwright)
         run: npm run test:e2e
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report
@@ -67,7 +67,7 @@ jobs:
           retention-days: 7
       - name: Demo rehearsal (docs/demo-script.md on the full demo dataset)
         run: npm run test:demo
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report-demo
@@ -108,7 +108,7 @@ jobs:
           MODEL_PRICE_OUTPUT_PER_MTOK: ${{ vars.MODEL_PRICE_OUTPUT_PER_MTOK }}
           EVAL_MAX_DROP: "0.05"
         run: npm run eval -- --check
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: eval-report
